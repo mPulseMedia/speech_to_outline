@@ -1,0 +1,3365 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hindsight</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #070914;
+        --panel: rgba(255, 255, 255, 0.06);
+        --panel2: rgba(255, 255, 255, 0.04);
+        --border: rgba(255, 255, 255, 0.14);
+        --text: rgba(255, 255, 255, 0.94);
+        --muted: rgba(255, 255, 255, 0.68);
+        /* “Memory fade” for paragraph bodies once titles appear. */
+        --memory: rgba(255, 255, 255, 0.34);
+        --memory-fade-ms: 333ms;
+        --accent: #7c5cff;
+        --accent2: #2dd4bf;
+        /* Motion */
+        --motion-ease: cubic-bezier(0.42, 0, 1, 1); /* slow start → fast finish */
+        --motion-ease-soft: cubic-bezier(0.35, 0, 1, 1);
+        --settle-ease: cubic-bezier(0.3, 0, 0.2, 1); /* slow start → strong decel to stop */
+        --descend-ease: cubic-bezier(0.2, 0, 0.2, 1);
+        /* Typography: keep EVERYTHING identical (only color varies). */
+        --base-font-size: 16px;
+        --base-font-weight: 400;
+        --base-line-height: 1.35;
+        /* One hierarchy "indent step": match the 42px number column + 18px gap. */
+        --indent-step: 60px;
+        /* Collapse pace: slower, “trance-y” recession. */
+        /* Collapse/close timing (separate from new-paragraph enter). */
+        --collapse-ms: 900ms;
+        --collapse-opacity-ms: 800ms;
+        /* Paragraph (thought body) close timing */
+        --para-collapse-ms: 500ms;
+        --para-collapse-opacity-ms: 500ms;
+        /* Parent “lid” descend when closing. */
+        --parent-descend-ms: 500ms;
+        --parent-descend-px: 12px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+        font-size: var(--base-font-size);
+        font-weight: var(--base-font-weight);
+        line-height: var(--base-line-height);
+        background:
+          radial-gradient(1200px 800px at 18% -10%, rgba(124, 92, 255, 0.35), transparent 60%),
+          radial-gradient(1000px 700px at 92% 12%, rgba(45, 212, 191, 0.20), transparent 55%),
+          radial-gradient(900px 700px at 40% 120%, rgba(124, 92, 255, 0.12), transparent 55%),
+          var(--bg);
+        color: var(--text);
+        height: 100vh;
+        overflow: hidden; /* stage scroll handled inside outline */
+      }
+
+      /* Flatten ALL typographic hierarchy. */
+      .app,
+      .app * {
+        font-size: var(--base-font-size) !important;
+        font-weight: var(--base-font-weight) !important;
+        line-height: var(--base-line-height) !important;
+      }
+
+      .app {
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 26px 22px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        height: 100vh;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 14px 14px;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
+        backdrop-filter: blur(10px);
+      }
+
+      .title h1 {
+        margin: 0;
+        letter-spacing: 0.1px;
+      }
+      .title p {
+        margin: 4px 0 0;
+        color: var(--muted);
+        line-height: 1.35;
+      }
+      .brandRow {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .brandMark {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: radial-gradient(circle at 30% 30%, rgba(45, 212, 191, 0.9), rgba(124, 92, 255, 0.9));
+        box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.08), 0 0 24px rgba(124, 92, 255, 0.25);
+        animation: brandPulse 4.5s ease-in-out infinite;
+      }
+      @keyframes brandPulse {
+        0% { transform: translateY(0px) scale(1); filter: saturate(1); }
+        50% { transform: translateY(-1px) scale(1.05); filter: saturate(1.2); }
+        100% { transform: translateY(0px) scale(1); filter: saturate(1); }
+      }
+
+      .actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+      /* Minimal “stage” mode: hide controls but keep DOM for JS. */
+      .actions {
+        display: none;
+      }
+
+      .btn {
+        border: 1px solid var(--border);
+        background: var(--panel);
+        color: var(--text);
+        padding: 6px 10px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 12px;
+      }
+      .btn.primary {
+        border-color: rgba(124, 92, 255, 0.45);
+        background: rgba(124, 92, 255, 0.18);
+      }
+      .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .panel {
+        border: none;
+        background: transparent;
+        border-radius: 0;
+        overflow: visible;
+      }
+
+      .panelHeader {
+        padding: 0 0 6px;
+        border-bottom: none;
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 10px;
+        background: transparent;
+      }
+
+      .panelHeader strong {
+        font-size: inherit;
+        font-weight: inherit;
+      }
+
+      .hint {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .panelBody {
+        padding: 0;
+      }
+
+      textarea {
+        width: 100%;
+        min-height: 120px;
+        resize: vertical;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: #ffffff;
+        color: var(--text);
+        padding: 10px 12px;
+        font-size: 13px;
+        line-height: 1.35;
+        outline: none;
+        margin-top: 6px;
+      }
+
+      details {
+        border: none;
+        border-radius: 0;
+        overflow: visible;
+        background: transparent;
+      }
+      summary {
+        padding: 6px 0;
+        cursor: pointer;
+        user-select: none;
+        font-size: 12px;
+        color: var(--muted);
+        background: transparent;
+      }
+      .detailsBody {
+        padding: 6px 0 0;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .fields {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 14px;
+        align-items: center;
+      }
+
+      .field {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .field input,
+      .field select {
+        padding: 6px 8px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        background: #ffffff;
+        color: var(--text);
+      }
+      .field input[type="number"] {
+        width: 90px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 1.15fr 0.85fr;
+        gap: 12px;
+      }
+
+      @media (max-width: 980px) {
+        .topbar {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .scroll {
+        max-height: 64vh;
+        overflow: auto;
+      }
+
+      .outline {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        padding-top: 6px;
+      }
+
+      /* Slides-like numbered outline */
+      .outlineList {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        counter-reset: item;
+      }
+      .outlineItem {
+        counter-increment: item;
+        display: grid;
+        grid-template-columns: 42px 1fr;
+        column-gap: 18px;
+        padding: 6px 0;
+      }
+      .outlineNum {
+        padding-top: 2px;
+        color: var(--memory);
+      }
+      .outlineNum::before {
+        content: counter(item) ".";
+      }
+      .outlineContent {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+      }
+      .sectionTitle {
+        margin: 0;
+      }
+      .superTitle {
+        margin: 0;
+      }
+      .superChildren {
+        margin-left: var(--indent-step); /* indent A/B (and their thoughts) under I./II. */
+      }
+      /* Collapse framework (simple + stable): no measuring, no masks/overlays. */
+      .collapseWrap {
+        display: grid;
+        grid-template-rows: 1fr;
+        opacity: 1;
+        transition: grid-template-rows var(--collapse-ms) ease, opacity var(--collapse-opacity-ms) ease;
+      }
+      .collapseWrap.collapsed {
+        grid-template-rows: 0fr;
+        opacity: 0;
+      }
+      .collapseInner {
+        overflow: hidden;
+        min-height: 0;
+      }
+
+      /* .groupChildren removed: empty ruleset caused CSS warning */
+      .headerRow {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 10px;
+        user-select: none;
+      }
+      .headerRow.clickable {
+        cursor: pointer;
+      }
+      .headerLeft {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .childrenIndent {
+        margin-left: var(--indent-step);
+      }
+
+      /* Super/section header rows use the same 2-col layout as thoughts (num + gap + text). */
+      .superRowGrid,
+      .sectionRowGrid {
+        display: grid;
+        grid-template-columns: 42px 1fr;
+        column-gap: 18px;
+        padding: 6px 0;
+      }
+      /* Reduce the “A.  Title” gap (keep indenting unchanged). */
+      .sectionRowGrid {
+        column-gap: 10px;
+      }
+      .superNum,
+      .sectionNum {
+        padding-top: 2px;
+        color: var(--memory);
+      }
+      .outlineTitle {
+        min-height: calc(1em * var(--base-line-height)); /* reserved label line */
+        margin: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .outlineTitleRow {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 10px;
+        position: relative;
+        z-index: 3; /* stay in front while “descending” over paragraph */
+      }
+
+      @keyframes parentDescend {
+        0% {
+          transform: translateY(0px);
+        }
+        70% {
+          transform: translateY(var(--parent-descend-px));
+        }
+        100% {
+          transform: translateY(0px);
+        }
+      }
+      .outlineTitleRow.clickable {
+        cursor: pointer;
+        user-select: none;
+      }
+      .chev {
+        width: 18px;
+        text-align: right;
+        color: var(--muted);
+        font-weight: 700;
+        flex: 0 0 auto;
+      }
+      .outlineTitle.placeholder {
+        visibility: hidden; /* reserve space without chrome */
+      }
+      .outlineBody {
+        margin: 0;
+        max-width: 780px;
+        color: inherit;
+        opacity: 1;
+        max-height: 9999px;
+        overflow: hidden;
+        transition: max-height var(--para-collapse-ms) ease, opacity var(--para-collapse-opacity-ms) ease;
+      }
+      .outlineBodyWrap {
+        color: var(--text);
+        transition: color var(--memory-fade-ms) ease;
+      }
+      .outlineBodyWrap.faded {
+        color: var(--memory);
+      }
+
+      /* Helps the rows below glide upward during reflow. */
+      .outlineItem,
+      .sectionTitle,
+      .superTitle {
+        will-change: transform;
+      }
+
+      /* Removed: complex “lid descend” masking/overlay framework. */
+
+      /* Make outline typography slightly more distinctive. */
+      .outline,
+      .outlineNum,
+      .sectionNum,
+      .superNum,
+      .outlineTitle,
+      .outlineBody,
+      .sectionTitle,
+      .superTitle {
+        font-family: ui-rounded, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+        letter-spacing: 0.1px;
+      }
+
+      /* Hide input/settings/mic sections entirely. */
+      #panelInput,
+      #detailsSettings,
+      #detailsMic {
+        display: none;
+      }
+
+      /* Hide Outline panel chrome: keep only the outline stage. */
+      #panelOutline .panelHeader {
+        display: none;
+      }
+      #panelOutline .panelBody.scroll {
+        max-height: none;
+        overflow: auto;
+        flex: 1 1 auto;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+      }
+      #panelOutline {
+        flex: 1 1 auto;
+        display: flex;
+        flex-direction: column;
+        min-height: 0; /* allow inner scrolling */
+      }
+      #outline {
+        margin-top: auto; /* anchor content to bottom like a chat */
+        /* Extra runway so “descend over children” stays visible in viewport. */
+        padding-bottom: 90px;
+      }
+
+      /* Animation overlay: lets titles/parents move without being clipped by child masks. */
+      #animOverlay {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        z-index: 9999;
+      }
+
+      /* Smoothly introduce newly-appearing parent rows (A./I.). */
+      [data-enter="1"] {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      /* Sentence-first view */
+      .outlineTitle.keywords {
+        visibility: visible;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .outlineTitle.keywords span {
+        letter-spacing: 0.1px;
+      }
+
+      .gutter {
+        display: none;
+      }
+
+      .utterances {
+        display: none; /* no longer used in slides-like layout */
+      }
+
+      .tLine {
+        padding: 2px 0;
+        border: none;
+        background: transparent;
+        border-radius: 0;
+        font-size: 13px;
+        line-height: 1.35;
+      }
+
+      .transcript {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .small {
+        font-size: 11px;
+      }
+
+      .supportNote {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .micStatus {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .micStatus.live {
+        color: var(--text);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <div class="topbar">
+        <div class="title">
+          <div class="brandRow">
+            <div class="brandMark" aria-hidden="true"></div>
+            <h1>Hindsight</h1>
+          </div>
+          <p>
+            A theatrical speech → outline: it captures what you say, then lets it recede—slowly—so you’ll recognize it when you return.
+          </p>
+        </div>
+        <div class="actions">
+          <button id="btnStream" class="btn primary">Begin</button>
+          <button id="btnBack10" class="btn" disabled>Rewind 10s</button>
+          <button id="btnPauseToggle" class="btn" disabled>Pause</button>
+          <button id="btnReset" class="btn">Clear</button>
+        </div>
+      </div>
+
+      <div class="panel" id="panelInput">
+        <div class="panelHeader">
+          <div style="display: flex; flex-direction: column; gap: 4px">
+            <strong>Input</strong>
+            <span class="hint small">Blank lines force a new thought. Otherwise boundaries come from “Next/Moving on/Finally…” or pauses.</span>
+          </div>
+          <span id="supportNote" class="supportNote" style="display: none">Speech recognition not supported in this browser</span>
+        </div>
+        <div class="panelBody">
+          <textarea id="pasteBox" placeholder="Paste text here…"></textarea>
+        </div>
+      </div>
+
+      <details id="detailsSettings">
+        <summary>Settings</summary>
+        <div class="detailsBody">
+          <div class="fields">
+            <div class="field">
+              view
+              <select id="viewMode">
+                <option value="sentences">sentences</option>
+                <option value="thoughts">thoughts</option>
+              </select>
+            </div>
+            <div class="field">
+              split
+              <select id="splitMode">
+                <option value="line">line</option>
+                <option value="auto">auto</option>
+                <option value="sentence">sentence</option>
+              </select>
+            </div>
+            <div class="field">
+              retro shift
+              <input id="retroShift" type="number" min="0" max="10" step="1" value="2" />
+            </div>
+            <div class="field">
+              pause ms
+              <input id="pauseMs" type="number" min="300" max="10000" step="50" value="1800" />
+            </div>
+            <div class="field">
+              label delay ms
+              <input id="labelDelayMs" type="number" min="0" max="10000" step="50" value="2800" />
+            </div>
+            <div class="field">
+              speed ms/line
+              <input id="speedMs" type="number" min="150" max="5000" step="50" value="2000" />
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <details id="detailsMic">
+        <summary>Mic (optional)</summary>
+        <div class="detailsBody">
+          <div class="actions" style="justify-content: flex-start">
+            <button id="btnMicStart" class="btn">Start mic</button>
+            <button id="btnMicStop" class="btn" disabled>Stop mic</button>
+            <span id="micStatus" class="micStatus">mic idle</span>
+          </div>
+          <div class="fields">
+            <div class="field">
+              language
+              <select id="micLang">
+                <option value="en-US">en-US</option>
+                <option value="en-GB">en-GB</option>
+                <option value="es-ES">es-ES</option>
+                <option value="fr-FR">fr-FR</option>
+              </select>
+            </div>
+          </div>
+          <div class="hint small">Mic usually requires running from <span style="font-family: ui-monospace">http://localhost</span> (not file://).</div>
+        </div>
+      </details>
+
+      <div class="panel" id="panelOutline">
+        <div class="panelHeader">
+          <strong>Outline</strong>
+          <span id="outlineMeta" class="hint" style="display: none">0 thoughts</span>
+        </div>
+        <div class="panelBody scroll" id="outlineScroll">
+          <div id="animOverlay" aria-hidden="true"></div>
+          <div id="outline"></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // --- Outline engine (single-file, no deps) ---
+
+      const DEFAULT_CONFIG = {
+        retroShiftCount: 2,
+        pauseBoundaryMs: 1800,
+        labelDelayMs: 2800,
+        speedMs: 2000,
+        // After a thought gets a label, keep its paragraph visible for N more streamed steps,
+        // then auto-collapse to title-only (slides behavior).
+        autoCollapseAfterSteps: 60,
+        // After a parent (section/super) becomes revealable, wait N more streamed steps,
+        // then collapse all named children at once.
+        parentCollapseAfterSteps: 12,
+        // When a parent layer first appears, delay revealing its title by N steps.
+        // (e.g., show "A." first, then later show "A. Opening".)
+        parentTitleRevealAfterSteps: 4,
+        // Rolling visibility window: try to keep only the most recent speech visible.
+        // (Older *labeled* thoughts will auto-collapse once they fall outside this window.)
+        liveWindowMs: 360_000,
+        // Keep this list SMALL and "hard": discourse markers like "so/okay/now"
+        // happen constantly and should NOT fragment thoughts.
+        boundaryStarters: ["next", "moving on", "finally", "first", "second", "third"],
+        // Group into longer cohesive thoughts (not 1–2 sentences).
+        minUtterancesPerThought: 4,
+        minWordsPerThought: 85,
+        // Cap thought growth so it doesn't become unlabelable.
+        maxUtterancesPerThought: 10,
+        maxWordsPerThought: 240,
+        // Cohesion heuristic: if the next utterance shares few keywords with the current thought,
+        // it's more likely to be a new thought.
+        similarityThreshold: 0.10,
+        // Don't show a summary until there's enough substance.
+        labelMinWords: 75,
+        // Pasted text streaming: default to sentence-sized units.
+        splitMode: "sentence", // "line" | "sentence" | "auto"
+        // Default view: grouped blocks (numbered).
+        viewMode: "thoughts", // "sentences" | "thoughts"
+      };
+
+      function makeId(prefix) {
+        return `${prefix}_${Math.random().toString(16).slice(2)}_${Date.now().toString(16)}`;
+      }
+
+      const STOP = new Set([
+        "the",
+        "a",
+        "an",
+        "and",
+        "or",
+        "but",
+        "so",
+        "to",
+        "of",
+        "in",
+        "on",
+        "for",
+        "with",
+        "that",
+        "this",
+        "it",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "as",
+        "at",
+        "by",
+        "from",
+        "we",
+        "i",
+        "you",
+        "they",
+        "he",
+        "she",
+        "them",
+        "our",
+        "your",
+      ]);
+
+      function normalize(text) {
+        return (text || "").trim().toLowerCase();
+      }
+
+      const FILLER_PREFIX_RE = new RegExp(
+        String.raw`^\s*(?:` +
+          [
+            "ok",
+            "okay",
+            "oh",
+            "ah",
+            "yeah",
+            "yep",
+            "right",
+            "alright",
+            "all right",
+            "um",
+            "uh",
+            "erm",
+            "hmm",
+            "ay",
+            "like",
+            "you know",
+            "i mean",
+          ]
+            .map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+            .join("|") +
+          String.raw`)\s*(?:[,.:;!?-]\s*)*`,
+        "i"
+      );
+
+      function stripTranscriptionDisclaimers(text) {
+        let s = text || "";
+        // Remove "(Transcribed by ...)" / "(... TurboScribe ...)" style parentheticals.
+        s = s.replace(/\([^)]*(transcrib|turboscribe|go unlimited)[^)]*\)\s*/gi, "");
+        // Remove leading bracketed junk too.
+        s = s.replace(/^\[[^\]]*(transcrib|turboscribe)[^\]]*\]\s*/gi, "");
+        return s.trim();
+      }
+
+      function stripLeadingFillers(text) {
+        let s = stripTranscriptionDisclaimers((text || "").trim());
+        // Repeatedly strip common fillers at the start.
+        for (let i = 0; i < 6; i++) {
+          const next = s.replace(FILLER_PREFIX_RE, "").trim();
+          if (next === s) break;
+          s = next;
+        }
+        return s;
+      }
+
+      function isBoundaryByStarter(text, starters) {
+        const n = normalize(stripLeadingFillers(text));
+        return starters.some((s) => n === s || n.startsWith(`${s} `) || n.startsWith(`${s},`));
+      }
+
+      function extractKeywords(text) {
+        const words = stripLeadingFillers(text)
+          .toLowerCase()
+          .replace(/[^\p{L}\p{N}\s]+/gu, " ")
+          .split(/\s+/)
+          .filter(Boolean)
+          .filter((w) => w.length >= 4 && !STOP.has(w));
+        return new Set(words);
+      }
+
+      function jaccard(a, b) {
+        const union = new Set([...a, ...b]);
+        if (union.size === 0) return 1;
+        let inter = 0;
+        for (const x of a) if (b.has(x)) inter++;
+        return inter / union.size;
+      }
+
+      function noveltyRatio(nextKeys, thoughtKeys) {
+        if (!nextKeys.size) return 0;
+        let novel = 0;
+        for (const k of nextKeys) if (!thoughtKeys.has(k)) novel++;
+        return novel / nextKeys.size;
+      }
+
+      function countWords(text) {
+        return (text || "").trim().split(/\s+/).filter(Boolean).length;
+      }
+
+      function thoughtWordCount(thought) {
+        let n = 0;
+        for (const u of thought.utterances) n += countWords(u.text);
+        return n;
+      }
+
+      function thoughtKeywords(thought) {
+        const set = new Set();
+        for (const u of thought.utterances) {
+          for (const w of extractKeywords(u.text)) set.add(w);
+        }
+        return set;
+      }
+
+      function newEngineState(nowMs) {
+        return {
+          thoughts: [
+            {
+              id: makeId("thought"),
+              createdAtMs: nowMs,
+              label: null,
+              labelStatus: "pending",
+              utterances: [],
+              plannedTitle: "",
+              sectionTitle: "",
+              superTitle: "",
+              ui: {
+                collapsed: false,
+                manual: false,
+                labelReadyAtStep: null,
+              },
+            },
+          ],
+          lastUtteranceAtMs: null,
+        };
+      }
+
+      function ensureCurrentThought(state, nowMs) {
+        const cur = state.thoughts[state.thoughts.length - 1];
+        if (cur) return cur;
+        const t = {
+          id: makeId("thought"),
+          createdAtMs: nowMs,
+          label: null,
+          labelStatus: "pending",
+          utterances: [],
+          plannedTitle: "",
+          sectionTitle: "",
+          superTitle: "",
+          ui: {
+            collapsed: false,
+            manual: false,
+            labelReadyAtStep: null,
+          },
+        };
+        state.thoughts.push(t);
+        return t;
+      }
+
+      function shouldStartNewThought({ utterance, state, config }) {
+        if (scriptedMode) return false;
+        const cur = state.thoughts[state.thoughts.length - 1];
+        if (!cur) return false;
+
+        const last = state.lastUtteranceAtMs;
+        const gap = last != null ? utterance.tMs - last : 0;
+        const pauseBoundary = last != null && gap >= config.pauseBoundaryMs;
+        const starterBoundary = isBoundaryByStarter(utterance.text, config.boundaryStarters);
+
+        // Cohesion: compare next utterance keywords to current thought keywords.
+        const uKeys = extractKeywords(utterance.text);
+        const tKeys = thoughtKeywords(cur);
+        const sim = jaccard(uKeys, tKeys);
+        const nov = noveltyRatio(uKeys, tKeys);
+
+        // Hard guards against fragmenting early.
+        const curU = cur.utterances.length;
+        const curW = thoughtWordCount(cur);
+        const hugePause = last != null && gap >= config.pauseBoundaryMs * 2.5;
+
+        // If we don't have enough content yet, only allow very strong boundaries.
+        if (curU < config.minUtterancesPerThought || curW < config.minWordsPerThought) {
+          if (hugePause) return true;
+          // A starter alone is not enough this early; keep grouping.
+          return false;
+        }
+
+        // After the thought is "big enough", allow boundaries on explicit signals
+        // OR clear topic shift.
+        if (pauseBoundary) return true;
+
+        if (starterBoundary) {
+          // If it's cohesive, keep it together (a lot of "Next," is just rhetorical).
+          if (sim >= config.similarityThreshold) return false;
+          // Still require some novelty so we don't split on rhetorical "Next".
+          return nov >= 0.55;
+        }
+
+        // Topic shift: very low similarity + high novelty, and the next utterance is non-trivial.
+        const nextWords = countWords(stripLeadingFillers(utterance.text));
+        if (nextWords >= 8 && sim <= 0.04 && nov >= 0.75) return true;
+
+        // Similarity alone should NOT split thoughts.
+        return false;
+      }
+
+      function ingestUtterance({ utterance, state, config, forceBoundary, plannedTitle, sectionTitle, superTitle }) {
+        const cur = ensureCurrentThought(state, utterance.tMs);
+        const curU = cur.utterances.length;
+        const curW = thoughtWordCount(cur);
+
+        const maxU = clampInt(config.maxUtterancesPerThought, 1, 9999);
+        const maxW = clampInt(config.maxWordsPerThought, 10, 999999);
+
+        // In scripted mode, boundaries should come only from explicit markup (`forceBoundary`).
+        // This avoids surprise "paragraph break aparts" from retro-shifting or overflow splitting.
+        const overflow = scriptedMode ? false : curU >= maxU || curW >= maxW;
+        const boundary = !!forceBoundary || shouldStartNewThought({ utterance, state, config }) || overflow;
+
+        if (boundary && state.thoughts.length > 0 && curU > 0) {
+          const prev = state.thoughts[state.thoughts.length - 1];
+          const baseTitle = (plannedTitle || "").trim();
+          const sec = (sectionTitle || "").trim();
+          const sup = (superTitle || "").trim();
+
+          // If we split due to size overflow (not an explicit boundary), do NOT invent a continuation
+          // title. Leave it blank unless the script explicitly provides one.
+          const nextTitle = overflow ? "" : baseTitle;
+
+          const next = {
+            id: makeId("thought"),
+            createdAtMs: utterance.tMs,
+            label: null,
+            labelStatus: "pending",
+            utterances: [],
+            plannedTitle: nextTitle,
+            sectionTitle: sec,
+            superTitle: sup,
+            ui: {
+              collapsed: false,
+              manual: false,
+              labelReadyAtStep: null,
+            },
+          };
+
+          const shiftN = scriptedMode ? 0 : Math.max(0, Math.min(config.retroShiftCount, prev.utterances.length));
+          if (shiftN > 0) {
+            const moved = prev.utterances.slice(prev.utterances.length - shiftN);
+            prev.utterances = prev.utterances.slice(0, prev.utterances.length - shiftN);
+            next.utterances.push(...moved);
+          }
+
+          state.thoughts.push(next);
+        }
+
+        const target = ensureCurrentThought(state, utterance.tMs);
+        // Apply planned title/section to the current thought if it's empty (first thought case)
+        if (target.utterances.length === 0) {
+          if (plannedTitle && !target.plannedTitle) target.plannedTitle = (plannedTitle || "").trim();
+          if (sectionTitle && !target.sectionTitle) target.sectionTitle = (sectionTitle || "").trim();
+          if (superTitle && !target.superTitle) target.superTitle = (superTitle || "").trim();
+        }
+
+        target.utterances.push(utterance);
+        state.lastUtteranceAtMs = utterance.tMs;
+        return state;
+      }
+
+      function suggestLabel(thought) {
+        const text = thought.utterances.map((u) => u.text).join(" ");
+        // Best-effort labeling: don't wait for huge blocks.
+        // If there's truly not enough signal, keep the reserved line blank.
+        const twc = thoughtWordCount(thought);
+        if (twc < 10) return "";
+
+        const BAD = new Set([
+          // pronouns / vague / filler
+          "i",
+          "you",
+          "we",
+          "they",
+          "he",
+          "she",
+          "it",
+          "this",
+          "that",
+          "these",
+          "those",
+          "just",
+          "really",
+          "kind",
+          "sort",
+          "like",
+          "yeah",
+          "okay",
+          "alright",
+          "right",
+          "stuff",
+          "thing",
+          "things",
+          "maybe",
+          "basically",
+        ]);
+
+        function cleanForTitle(s) {
+          return stripLeadingFillers(stripTranscriptionDisclaimers(s || ""))
+            .replace(/["“”]/g, "")
+            .replace(/\s+/g, " ")
+            .trim();
+        }
+
+        function toTitleCaseWord(w) {
+          if (!w) return w;
+          if (/^[A-Z0-9]+$/.test(w)) return w; // acronyms
+          return w.slice(0, 1).toUpperCase() + w.slice(1).toLowerCase();
+        }
+
+        function titleCasePhrase(words) {
+          return words.map(toTitleCaseWord).join(" ");
+        }
+
+        function wordScore(w) {
+          const t = w.toLowerCase();
+          if (STOP.has(t) || BAD.has(t)) return -2;
+          const f = globalWordFreq.get(t) || 0;
+          const idfish = 1 / Math.pow(f + 1, 0.7);
+          return idfish * Math.min(10, t.length);
+        }
+
+        const full = cleanForTitle(text);
+        if (!full) return "";
+
+        const words = full
+          .split(/\s+/)
+          .map((w) => w.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ""))
+          .filter(Boolean);
+
+        // 1) Try to form a short abstract title: Verb-ish + object-ish.
+        const ACTION = new Map([
+          ["add", "Adding"],
+          ["added", "Adding"],
+          ["adding", "Adding"],
+          ["build", "Building"],
+          ["built", "Building"],
+          ["building", "Building"],
+          ["make", "Making"],
+          ["making", "Making"],
+          ["create", "Creating"],
+          ["creating", "Creating"],
+          ["edit", "Editing"],
+          ["editing", "Editing"],
+          ["test", "Testing"],
+          ["testing", "Testing"],
+          ["remove", "Removing"],
+          ["removing", "Removing"],
+          ["comment", "Commenting"],
+          ["commenting", "Commenting"],
+          ["refactor", "Refactoring"],
+          ["refactoring", "Refactoring"],
+          ["compare", "Comparing"],
+          ["comparing", "Comparing"],
+          ["choose", "Choosing"],
+          ["choosing", "Choosing"],
+        ]);
+
+        const low = words.map((w) => w.toLowerCase());
+        let verb = "";
+        let verbIdx = -1;
+        for (let i = 0; i < low.length; i++) {
+          const v = ACTION.get(low[i]);
+          if (v) {
+            verb = v;
+            verbIdx = i;
+            break;
+          }
+        }
+
+        if (verb) {
+          const obj = [];
+          for (let j = verbIdx + 1; j < low.length && obj.length < 3; j++) {
+            const t = low[j];
+            if (STOP.has(t) || BAD.has(t)) continue;
+            if (t.length < 4) continue;
+            obj.push(toTitleCaseWord(words[j]));
+          }
+          if (obj.length) {
+            return `${verb} ${obj.join(" ")}`.slice(0, 64);
+          }
+        }
+
+        // 2) Topic rules (more "summary", less snippet).
+        const s = ` ${low.join(" ")} `;
+        const has = (re) => re.test(s);
+
+        // Early framing / speech structure
+        if (has(/\bteleprompter\b/)) return "Speaking Without Teleprompter";
+        if (has(/\bsix years\b/) && (has(/\bgrand hall\b/) || has(/\bfirst term\b/))) return "Six Years Since First Term";
+        if (has(/\bguns of war\b/) || (has(/\bpeace\b/) && has(/\bshattered\b/))) return "From Peace to Crisis";
+        if (has(/\bweakness\b/) && (has(/\blawlessness\b/) || has(/\bradicalism\b/))) return "Years of Weak Leadership";
+        if (has(/\bhottest country\b/) || has(/\bno other country\b/)) return "America Back on Top";
+        if (has(/\bgolden age\b/) || (has(/\bstrongest\b/) && has(/\beconomy\b/))) return "Golden Age of America";
+
+        // Economy / investment
+        if (has(/\binflation\b/) && (has(/\bgasoline\b/) || has(/\bgrocery\b/) || has(/\bmortgage\b/))) return "Inflation and Prices Down";
+        if (has(/\bstock market\b/) && (has(/\brecord\b/) || has(/\bhigh\b/))) return "Stock Market Records";
+        if (has(/\bmanufacturing\b/) && (has(/\bbooming\b/) || has(/\bsurging\b/))) return "Manufacturing and Growth Surge";
+        if (has(/\b17 trillion\b/) || (has(/\bcommitments\b/) && has(/\btrillion\b/))) return "Investment Commitments Surge";
+        if (has(/\btax cuts\b/) && has(/\bregulation\b/)) return "Tax and Regulation Cuts";
+
+        // Border / enforcement
+        if (has(/\bsouthern border\b/) || has(/\bborder\b/) && (has(/\billegal\b/) || has(/\baliens\b/) || has(/\binvasion\b/)))
+          return "Border Crackdown and Deterrence";
+        if (has(/\bcome illegally\b/) && (has(/\bjail\b/) || has(/\bgoing back\b/))) return "Jail-or-Return Border Message";
+        if (has(/\bel salvador\b/) && (has(/\bjailing\b/) || has(/\bcriminals\b/))) return "Deportations and El Salvador Jails";
+        if (has(/\bimmigration\b/) && (has(/\bdestroying\b/) || has(/\bother countries\b/))) return "Immigration Pressure Worldwide";
+
+        // Alliances / deals / wars / UN critique
+        if (has(/\bnato\b/) && (has(/\bdefense\b/) || has(/\bspending\b/) || has(/\b5%\b/) || has(/\bgdp\b/)))
+          return "NATO Defense Spending Increase";
+        if (has(/\bgulf\b/) || has(/\bsaudi\b/) || has(/\bqatar\b/) || has(/\buae\b/) || has(/\bmiddle east\b/))
+          return "Middle East Partnerships";
+        if (has(/\btrade deal\b/) || has(/\btrade deals\b/) || (has(/\bnegotiated\b/) && has(/\bdeal\b/))) return "Trade Deal Sprint";
+        if (has(/\bended\b/) && has(/\bwars\b/)) return "Ending Multiple Wars";
+        if (has(/\bunited nations\b/) && (has(/\bphone call\b/) || has(/\bhelp\b/) || has(/\bfinalizing\b/)))
+          return "UN Missing from Peace Deals";
+        if (has(/\bescalator\b/) || has(/\bteleprompter\b/) && has(/\bnot working\b/)) return "UN Logistics and Friction";
+        if (has(/\bnobel\b/) || (has(/\bpeace prize\b/) && has(/\bsaving lives\b/))) return "Saving Lives Over Prizes";
+        if (has(/\brenovation\b/) && has(/\bbid\b/)) return "UN Renovation Bid and Overruns";
+
+        if (has(/\bsvg\b/) && has(/\bhover\b/)) return "Interactive SVG Diagrams";
+        if (has(/\bsvg\b/)) return "SVG Diagram Generation";
+        if (has(/\barchitecture\b/) && has(/\bdiagram\b/)) return "Architecture Diagram Overview";
+        if (has(/\bgit\b/) || (has(/\bbranch\b/) && has(/\bcommit\b/)) || has(/\bpush\b/) || has(/\bpull\b/))
+          return "Git Branching and Pushing";
+        if (has(/\bbranch\b/) && (has(/\bmain\b/) || has(/\borigin\b/))) return "Branching Without Touching Main";
+        if (has(/\bdatabase\b/)) return "Database Connections Overview";
+        if (has(/\bscript\b/) && has(/\beditor\b/)) return "Script Editor vs Other Input";
+        if (has(/\btab\b/) || has(/\btabs\b/)) return "Two-Tab UI Layout";
+
+        // 3) Keyword-based abstract label (not verbatim): top distinctive terms + generic noun.
+        const tok = low
+          .map((w) => w.replace(/[^a-z0-9]+/g, ""))
+          .filter(Boolean)
+          .filter((w) => w.length >= 4 && !STOP.has(w) && !BAD.has(w))
+          .filter((w) => w !== "turboscribe" && w !== "transcribed" && w !== "unlimited");
+
+        const tf = new Map();
+        for (const w of tok) tf.set(w, (tf.get(w) || 0) + 1);
+
+        const scored = [...tf.entries()]
+          .map(([w, c]) => ({ w, score: c * wordScore(w) }))
+          .filter((x) => x.score > 0)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 3)
+          .map((x) => x.w);
+
+        const labelWords = scored.map(toTitleCaseWord).slice(0, 3);
+        if (labelWords.length >= 2) return `${labelWords.join(" ")}`.slice(0, 64);
+        if (labelWords.length === 1) return `${labelWords[0]}`.slice(0, 64);
+        return "Key point";
+      }
+
+      // --- App state ---
+      let config = { ...DEFAULT_CONFIG };
+      let engine = newEngineState(Date.now());
+      let transcript = [];
+      let globalWordFreq = new Map(); // used for per-sentence keyword suggestions
+      let pendingLabelThoughtIds = []; // schedule labels only after NEXT sentence is displayed
+      let pendingLabelUpdates = []; // [{ thoughtId, text? }]
+      let scriptedMode = false; // when true, thought boundaries come ONLY from markup/forceBoundary
+      let plannedThoughtLabels = []; // legacy; kept for compatibility
+      let currentSectionTitle = ""; // from @@section markup
+      let currentSuperTitle = ""; // from @@super markup
+      // continuation titling removed: no "(Part 2/3)" crutch
+      let streamStep = 0; // increments per ingested utterance ("clicks" of the animation)
+      let streamEnded = false;
+      let prevCollapsedByThoughtId = new Map(); // thoughtId -> boolean (for smooth collapse/expand)
+      let prevFadedByThoughtId = new Map(); // thoughtId -> boolean (for paragraph color fade on title appearance)
+      let renderCollapseRaf = null;
+      let collapseAnimInProgress = false; // enforce 1 collapse animation at a time
+      let closedSupers = new Set(); // superTitle (closed means title can show)
+      let superEstablishedAtStep = new Map(); // superTitle -> streamStep when title became revealable
+      let sectionEstablishedAtStep = new Map(); // `${super}||${section}` -> streamStep when title became revealable
+      let superAutoCollapsed = new Set(); // superTitle (already triggered a collapse wave)
+      let sectionAutoCollapsed = new Set(); // `${super}||${section}` (already triggered a collapse wave)
+      let windowCollapseDueAtByThoughtId = new Map(); // thoughtId -> dueAt (ms since epoch)
+      let superCollapsed = new Map(); // superTitle -> boolean
+      let sectionCollapsed = new Map(); // `${superTitle}||${sectionTitle}` -> boolean
+      let sectionClosedAtStep = new Map(); // `${super}||${section}` -> streamStep when section closed
+      let superDisplayTitleByKey = new Map(); // superTitle -> hindsight name shown in UI
+      let prevCollapsedByGroupKey = new Map(); // `super:${t}` / `section:${sup}||${sec}` -> boolean
+      let manualSuperToggles = new Set(); // superTitle
+      let manualSectionToggles = new Set(); // `${superTitle}||${sectionTitle}`
+      let forceRevealSupers = new Set(); // superTitle (used to reveal e.g. "II" near end-of-stream)
+
+      // Endcap animation: slow recession after a super closes.
+      // Goal: collapse thoughts first, then sections, then (after a beat) the Roman numeral group.
+      const ENDCAP_START_DELAY_MS = 8000;
+      const ENDCAP_THOUGHT_STEP_MS = 650;
+      const ENDCAP_SECTION_STEP_MS = 800;
+      const ENDCAP_BETWEEN_SECTIONS_MS = 500;
+      const ENDCAP_SUPER_AFTER_CHILDREN_MS = 1400;
+      const ENDCAP_SUPER_REVEAL_LEAD_MS = 1200; // show super title this long before collapsing it
+      const ENDCAP_SECTION_AFTER_CHILDREN_CLICKS = 3; // wait this many "thought clicks" before collapsing the section itself
+      const ENDCAP_OPENING_FIRST_BULLET_EXTRA_CLICKS = 4; // keep the very first Opening bullet around longer
+
+      let endcapJobs = []; // [{ supTitle, sectionIdx, phase, nextAt }]
+      let superOrder = []; // in encounter order (from @@super or implicit "")
+      let sectionOrderBySuper = new Map(); // superTitle -> sectionTitle[]
+      let sectionTitleByKey = new Map(); // `${super}||${section}` -> planned title
+      let closedSections = new Set(); // `${super}||${section}` (closed means title can show)
+      let scriptPlan = null; // { supers: string[], sectionsBySuper: Map<string,string[]> } in markup mode
+      let pendingCloseSectionKey = ""; // `${super}||${section}` closed when next child appears
+
+      // Streaming state
+      let streamingQueue = []; // legacy; kept for compatibility
+      let fullQueue = [];
+      let queueIndex = 0;
+      let streamHistory = []; // [{ timeMs, queueIndex, state: {...} }]
+      let streamTimer = null;
+      let paused = false;
+
+      // Label jobs
+      let labelJobs = []; // { thoughtId, dueAt, text?: string }
+      let labelTimer = null;
+
+      // --- DOM ---
+      const $ = (id) => document.getElementById(id);
+      const outlineEl = $("outline");
+      const outlineScrollEl = $("outlineScroll");
+      const animOverlayEl = $("animOverlay");
+      const outlineMeta = $("outlineMeta");
+      const transcriptMeta = $("transcriptMeta");
+
+      // --- Scroll behavior ---
+      // Only auto-scroll when the user is already near the bottom.
+      const AUTO_SCROLL_THRESHOLD_PX = 80;
+      let stickToBottom = true;
+      function isNearBottom(el) {
+        if (!el) return true;
+        const remaining = el.scrollHeight - el.scrollTop - el.clientHeight;
+        return remaining <= AUTO_SCROLL_THRESHOLD_PX;
+      }
+      function maybeScrollToBottom(el) {
+        if (!el) return;
+        if (stickToBottom) el.scrollTop = el.scrollHeight;
+      }
+      if (outlineScrollEl) {
+        outlineScrollEl.addEventListener("scroll", () => {
+          stickToBottom = isNearBottom(outlineScrollEl);
+        });
+      }
+
+      const btnStream = $("btnStream");
+      const btnBack10 = $("btnBack10");
+      const btnPauseToggle = $("btnPauseToggle");
+      const btnReset = $("btnReset");
+
+      const pasteBox = $("pasteBox");
+
+      const retroShiftInput = $("retroShift");
+      const pauseMsInput = $("pauseMs");
+      const labelDelayInput = $("labelDelayMs");
+      const speedInput = $("speedMs");
+      const splitModeInput = $("splitMode");
+      const viewModeInput = $("viewMode");
+
+      const btnMicStart = $("btnMicStart");
+      const btnMicStop = $("btnMicStop");
+      const micStatus = $("micStatus");
+      const micLang = $("micLang");
+      const supportNote = $("supportNote");
+
+      function clampInt(v, min, max) {
+        const n = Number(v);
+        if (!Number.isFinite(n)) return min;
+        return Math.max(min, Math.min(max, Math.trunc(n)));
+      }
+
+      function setMicStatus(on, label) {
+        micStatus.classList.toggle("live", !!on);
+        micStatus.textContent = label;
+      }
+
+      function tokenizeForKeywords(text) {
+        return stripLeadingFillers(text)
+          .toLowerCase()
+          .replace(/[^\p{L}\p{N}\s]+/gu, " ")
+          .split(/\s+/)
+          .filter(Boolean)
+          .filter((w) => w.length >= 4 && !STOP.has(w));
+      }
+
+      function updateGlobalFreq(text) {
+        for (const w of tokenizeForKeywords(text)) {
+          globalWordFreq.set(w, (globalWordFreq.get(w) || 0) + 1);
+        }
+      }
+
+      function keywordsForSentence(text, k = 2) {
+        const tokens = tokenizeForKeywords(text);
+        if (!tokens.length) return [];
+
+        // Prefer distinctive (low global frequency) + longer words.
+        const scored = tokens.map((w, idx) => {
+          const f = globalWordFreq.get(w) || 0;
+          const score = (w.length + 2) / (f + 1) + (idx === 0 ? 0.15 : 0);
+          return { w, score };
+        });
+
+        scored.sort((a, b) => b.score - a.score);
+        const out = [];
+        const used = new Set();
+        for (const s of scored) {
+          if (used.has(s.w)) continue;
+          used.add(s.w);
+          out.push(s.w);
+          if (out.length >= k) break;
+        }
+        return out.map((w) => w.slice(0, 1).toUpperCase() + w.slice(1));
+      }
+
+      function suggestSuperTitle(superTitle) {
+        const sup = (superTitle || "").trim();
+        if (!sup) return "";
+        const texts = [];
+        for (const th of engine.thoughts) {
+          if (!th) continue;
+          if ((th.superTitle || "").trim() !== sup) continue;
+          const label = th.labelStatus === "ready" ? (th.label || "").trim() : "";
+          if (label) texts.push(label);
+          else if (th.utterances && th.utterances.length) texts.push(th.utterances.map((u) => u.text).join(" "));
+        }
+        const joined = texts.join(" ");
+        const tokens = tokenizeForKeywords(joined);
+        if (!tokens.length) return "";
+
+        // Prefer distinctive (low global frequency) + longer words.
+        const scored = tokens.map((w, idx) => {
+          const f = globalWordFreq.get(w) || 0;
+          const score = (w.length + 2) / (f + 1) + (idx === 0 ? 0.15 : 0);
+          return { w, score };
+        });
+
+        scored.sort((a, b) => b.score - a.score);
+        const out = [];
+        const used = new Set();
+        for (const s of scored) {
+          if (used.has(s.w)) continue;
+          used.add(s.w);
+          out.push(s.w);
+          if (out.length >= 3) break;
+        }
+        if (!out.length) return "";
+        return out.map((w) => w.slice(0, 1).toUpperCase() + w.slice(1)).join(" · ").slice(0, 64);
+      }
+
+      function maybeAutoNameSupers() {
+        // When both A and B under a super have at least one *named* child,
+        // lock in a hindsight name for that Roman numeral.
+        for (const supTitleRaw of superOrder) {
+          const sup = (supTitleRaw || "").trim();
+          if (!sup) continue;
+          if (superDisplayTitleByKey.has(sup)) continue;
+
+          const secs = (sectionOrderBySuper.get(sup) || []).map((s) => (s || "").trim()).filter(Boolean);
+          if (secs.length < 2) continue;
+
+          let namedSections = 0;
+          for (const sec of secs) {
+            let hasNamedChild = false;
+            for (const th of engine.thoughts) {
+              if (!th) continue;
+              if ((th.superTitle || "").trim() !== sup) continue;
+              if ((th.sectionTitle || "").trim() !== sec) continue;
+              const named = th.labelStatus === "ready" && (th.label || "").trim().length > 0;
+              if (named) {
+                hasNamedChild = true;
+                break;
+              }
+            }
+            if (hasNamedChild) namedSections += 1;
+            if (namedSections >= 2) break; // A + B are "named enough"
+          }
+          if (namedSections < 2) continue;
+
+          const guess = suggestSuperTitle(sup);
+          if (guess) superDisplayTitleByKey.set(sup, guess);
+        }
+      }
+
+      // --- Rendering ---
+      function render() {
+        if (outlineMeta) outlineMeta.textContent = `${engine.thoughts.length} thought${engine.thoughts.length === 1 ? "" : "s"}`;
+        if (transcriptMeta) transcriptMeta.textContent = `${transcript.length} line${transcript.length === 1 ? "" : "s"}`;
+
+        const viewMode = (config.viewMode || "sentences").toLowerCase();
+
+        // Respect user scroll: only pin to bottom if they were already near bottom.
+        const renderWasPinned = isNearBottom(outlineScrollEl);
+        stickToBottom = renderWasPinned;
+
+        // For smooth "everything slides up" behavior, capture previous row positions
+        // before we rebuild the DOM.
+        const prevRects = new Map();
+        for (const el of outlineEl.querySelectorAll("[data-anim-key]")) {
+          const k = el.dataset.animKey || "";
+          if (!k) continue;
+          const r = el.getBoundingClientRect();
+          prevRects.set(k, { top: r.top, left: r.left });
+        }
+
+        // Outline
+        outlineEl.innerHTML = "";
+        const prevMap = prevCollapsedByThoughtId || new Map();
+        const nextMap = new Map();
+        const prevFadeMap = prevFadedByThoughtId || new Map();
+        const nextFadeMap = new Map();
+        const prevGroupMap = prevCollapsedByGroupKey || new Map();
+        const nextGroupMap = new Map();
+        let hasCollapseTransition = false;
+        if (renderCollapseRaf) {
+          window.cancelAnimationFrame(renderCollapseRaf);
+          renderCollapseRaf = null;
+        }
+
+        const runCollapseAnimations = () => {
+          const rootStyle = window.getComputedStyle(document.documentElement);
+          const collapseMsStr = (rootStyle.getPropertyValue("--collapse-ms") || "").trim();
+          const collapseDurationMs = Number(collapseMsStr.replace("ms", "")) || 900;
+          const paraCollapseMsStr = (rootStyle.getPropertyValue("--para-collapse-ms") || "").trim();
+          const paraCollapseDurationMs = Number(paraCollapseMsStr.replace("ms", "")) || 500;
+          const parentDescendMsStr = (rootStyle.getPropertyValue("--parent-descend-ms") || "").trim();
+          const parentDescendDurationMs = Number(parentDescendMsStr.replace("ms", "")) || 500;
+
+          const durationFor = (el) =>
+            el && el.classList && el.classList.contains("outlineBody") ? paraCollapseDurationMs : collapseDurationMs;
+
+          function kickParentDescend(el) {
+            if (!el) return;
+            el.style.animation = "none";
+            // force reflow
+            // eslint-disable-next-line no-unused-expressions
+            el.offsetHeight;
+            el.style.animation = `parentDescend ${parentDescendDurationMs}ms var(--settle-ease)`;
+            window.setTimeout(() => {
+              el.style.animation = "";
+            }, parentDescendDurationMs + 50);
+          }
+          const animEls = outlineEl.querySelectorAll("[data-collapse-from][data-collapse-to]");
+          for (const el of animEls) {
+            const from = el.dataset.collapseFrom === "1";
+            const to = el.dataset.collapseTo === "1";
+            const fadeFrom = el.dataset.fadeFrom === "1";
+            const fadeTo = el.dataset.fadeTo === "1";
+
+            // Always keep the current target color applied.
+            el.style.color = fadeTo ? "var(--memory)" : "var(--text)";
+
+            if (from === to) {
+              if (!to) {
+                el.style.maxHeight = "9999px";
+                el.style.opacity = "1";
+              } else {
+                el.style.maxHeight = "0px";
+                el.style.opacity = "0";
+              }
+              continue;
+            }
+
+            if (to) {
+              // Collapse: set to measured height, then animate to 0.
+              const h = el.scrollHeight;
+              el.style.maxHeight = `${h}px`;
+              el.style.opacity = "1";
+              el.style.color = fadeFrom ? "var(--memory)" : "var(--text)";
+
+              // When a parent closes, have the parent descend over ~0.5s while child disappears.
+              const groupKey = el.dataset.groupKey || "";
+              const isFolderChildren = el.classList && el.classList.contains("groupChildren") && groupKey;
+              if (isFolderChildren) {
+                const header = outlineEl.querySelector(`[data-folder-key="${groupKey}"]`);
+                kickParentDescend(header);
+              }
+              if (el.classList && el.classList.contains("outlineBody")) {
+                const content = el.parentElement;
+                const titleRow = content ? content.querySelector(".outlineTitleRow") : null;
+                kickParentDescend(titleRow);
+              }
+              window.requestAnimationFrame(() => {
+                el.style.maxHeight = "0px";
+                el.style.opacity = "0";
+                if (fadeFrom !== fadeTo) el.style.color = fadeTo ? "var(--memory)" : "var(--text)";
+              });
+            } else {
+              // Expand: start collapsed, then animate to measured height.
+              el.style.maxHeight = "0px";
+              el.style.opacity = "0";
+              el.style.color = fadeFrom ? "var(--memory)" : "var(--text)";
+              window.requestAnimationFrame(() => {
+                const h = el.scrollHeight;
+                el.style.maxHeight = `${h}px`;
+                el.style.opacity = "1";
+                if (fadeFrom !== fadeTo) el.style.color = fadeTo ? "var(--memory)" : "var(--text)";
+                window.setTimeout(() => {
+                  el.style.maxHeight = "9999px";
+                }, durationFor(el) + 50);
+              });
+            }
+          }
+        };
+
+        const animateReflow = () => {
+          const durationMs = 333;
+          const els = Array.from(outlineEl.querySelectorAll("[data-anim-key]"));
+          const moves = [];
+          const enters = [];
+          const allowDy = !hasCollapseTransition; // let collapsing height drive vertical motion smoothly
+          for (const el of els) {
+            const k = el.dataset.animKey || "";
+            if (!k) continue;
+            if (!prevRects.has(k)) {
+              if (el.dataset.enter === "1") enters.push(el);
+              continue;
+            }
+            const oldR = prevRects.get(k);
+            const newR = el.getBoundingClientRect();
+            // Animate indentation changes smoothly, but clamp aggressively to prevent
+            // rare pathological sideways "fly off-page" FLIP artifacts.
+            let dx = oldR.left - newR.left;
+            const dy = allowDy ? oldR.top - newR.top : 0;
+            if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) continue;
+            if (Math.abs(dx) > 140) dx = 0; // ignore huge horizontal jumps
+            const clampedDx = Math.max(-90, Math.min(90, dx));
+            const clampedDy = Math.max(-800, Math.min(800, dy));
+            moves.push({ el, dx: clampedDx, dy: clampedDy });
+          }
+          if (!moves.length && !enters.length) return;
+
+          for (const m of moves) {
+            m.el.style.transition = "transform 0ms";
+            m.el.style.transform = `translate(${m.dx}px, ${m.dy}px)`;
+          }
+          window.requestAnimationFrame(() => {
+            for (const m of moves) {
+              m.el.style.transition = `transform ${durationMs}ms var(--motion-ease)`;
+              m.el.style.transform = "translate(0px, 0px)";
+            }
+            for (const el of enters) {
+              el.style.transition = `transform 140ms var(--motion-ease-soft), opacity 140ms ease`;
+              el.style.opacity = "1";
+              el.style.transform = "translateY(0px)";
+              el.dataset.enter = "0";
+            }
+            window.setTimeout(() => {
+              for (const m of moves) {
+                m.el.style.transition = "";
+                m.el.style.transform = "";
+              }
+              for (const el of enters) {
+                el.style.transition = "";
+              }
+            }, durationMs + 50);
+          });
+        };
+        function finalizeThoughtCollapseAnimations() {
+          prevCollapsedByThoughtId = nextMap;
+          prevFadedByThoughtId = nextFadeMap;
+          prevCollapsedByGroupKey = nextGroupMap;
+          renderCollapseRaf = window.requestAnimationFrame(runCollapseAnimations);
+          // Run FLIP reflow animation synchronously so indentation doesn't "jump"
+          // for a frame before the animation starts.
+          if (outlineScrollEl && renderWasPinned) outlineScrollEl.scrollTop = outlineScrollEl.scrollHeight;
+          animateReflow();
+          if (outlineScrollEl && renderWasPinned) window.requestAnimationFrame(() => maybeScrollToBottom(outlineScrollEl));
+        }
+
+        if (viewMode === "sentences") {
+          for (let i = 0; i < transcript.length; i++) {
+            const u = transcript[i];
+            const li = document.createElement("li");
+            li.className = "outlineItem";
+            li.dataset.animKey = `sentence:${i}`;
+
+            const num = document.createElement("div");
+            num.className = "outlineNum";
+
+            const content = document.createElement("div");
+            content.className = "outlineContent";
+
+            const title = document.createElement("div");
+            title.className = "outlineTitle keywords";
+            const kws = keywordsForSentence(u.text, 2);
+            title.innerHTML = kws.length ? `<span>${kws.join(" ")}</span>` : `<span>&nbsp;</span>`;
+
+            const body = document.createElement("div");
+            body.className = "outlineBody";
+            body.textContent = u.text;
+
+            content.appendChild(title);
+            content.appendChild(body);
+            li.appendChild(num);
+            li.appendChild(content);
+            outlineEl.appendChild(li);
+          }
+          if (outlineScrollEl && renderWasPinned) window.requestAnimationFrame(() => maybeScrollToBottom(outlineScrollEl));
+        } else {
+          // Stage the hierarchy:
+          // - Start with ONLY numbered thoughts (even if @@section/@@super exist).
+          // - Introduce the section layer only once there are 2+ sections.
+          // - Introduce the super layer only once there are 2+ supers.
+          const hasAnySection = engine.thoughts.some((th) => (th.sectionTitle || "").trim().length > 0);
+          const hasAnySuper = engine.thoughts.some((th) => (th.superTitle || "").trim().length > 0);
+
+          const distinctSections = new Set();
+          for (const arr of sectionOrderBySuper.values()) {
+            for (const s of arr || []) {
+              const t = (s || "").trim();
+              if (t) distinctSections.add(t);
+            }
+          }
+          // Fallback: if scripted state hasn't populated yet, scan thoughts.
+          if (distinctSections.size === 0 && hasAnySection) {
+            for (const th of engine.thoughts) {
+              const t = (th.sectionTitle || "").trim();
+              if (t) distinctSections.add(t);
+            }
+          }
+
+          const distinctSupers = new Set();
+          for (const s of superOrder) {
+            const t = (s || "").trim();
+            if (t) distinctSupers.add(t);
+          }
+          if (distinctSupers.size === 0 && hasAnySuper) {
+            for (const th of engine.thoughts) {
+              const t = (th.superTitle || "").trim();
+              if (t) distinctSupers.add(t);
+            }
+          }
+
+          const revealSectionLayer = distinctSections.size >= 2;
+          const revealSuperLayer = distinctSupers.size >= 2;
+
+          if (!revealSectionLayer) {
+            const ol = document.createElement("ol");
+            ol.className = "outlineList";
+
+            for (let i = 0; i < engine.thoughts.length; i++) {
+              const th = engine.thoughts[i];
+              const bodyText = th.utterances.map((u) => u.text).join(" ").trim();
+              if (!bodyText) continue;
+
+              const li = document.createElement("li");
+              li.className = "outlineItem";
+              li.dataset.animKey = `thought:${th.id}`;
+              if (!prevRects.has(li.dataset.animKey)) li.dataset.enter = "1";
+
+              const num = document.createElement("div");
+              num.className = "outlineNum";
+
+              const content = document.createElement("div");
+              content.className = "outlineContent";
+
+              const titleRow = document.createElement("div");
+              titleRow.className = "outlineTitleRow";
+
+              const title = document.createElement("div");
+              title.className = "outlineTitle";
+
+              const label = th.labelStatus === "ready" ? (th.label || "") : "";
+              if (label) {
+                title.textContent = label;
+                title.title = label;
+              } else {
+                const hintable = !!(th.ui && (th.ui.collapsed || th.ui.manual));
+                if (hintable) {
+                  title.textContent = "…";
+                  title.style.color = "var(--muted)";
+                } else {
+                  title.classList.add("placeholder");
+                  title.textContent = "placeholder";
+                }
+              }
+
+              const chev = document.createElement("div");
+              chev.className = "chev";
+              const canToggle = !!label || !!(th.ui && (th.ui.collapsed || th.ui.manual));
+              if (canToggle) {
+                if (!th.ui) th.ui = { collapsed: false, manual: false, labelReadyAtStep: null };
+                const collapsed = !!th.ui.collapsed;
+                chev.textContent = collapsed ? "▸" : "▾";
+                titleRow.classList.add("clickable");
+                titleRow.addEventListener("click", () => {
+                  if (!th.ui) th.ui = { collapsed: false, manual: false, labelReadyAtStep: null };
+                  th.ui.manual = true;
+                  th.ui.collapsed = !th.ui.collapsed;
+                  render();
+                });
+              } else {
+                chev.textContent = "";
+              }
+
+              const body = document.createElement("div");
+              body.className = "outlineBody";
+              body.textContent = bodyText;
+              // Smooth collapse/expand: render from previous state -> animate to current.
+              if (!th.ui) th.ui = { collapsed: false, manual: false, labelReadyAtStep: null };
+              const thoughtId = th.id;
+              const toCollapsed = !!th.ui.collapsed;
+              const fromCollapsed = prevMap.has(thoughtId) ? !!prevMap.get(thoughtId) : toCollapsed;
+              if (fromCollapsed !== toCollapsed) hasCollapseTransition = true;
+              nextMap.set(thoughtId, toCollapsed);
+              const toFaded = !!label;
+              const fromFaded = prevFadeMap.has(thoughtId) ? !!prevFadeMap.get(thoughtId) : toFaded;
+              nextFadeMap.set(thoughtId, toFaded);
+              body.dataset.thoughtId = thoughtId;
+              body.dataset.collapseFrom = fromCollapsed ? "1" : "0";
+              body.dataset.collapseTo = toCollapsed ? "1" : "0";
+              body.dataset.fadeFrom = fromFaded ? "1" : "0";
+              body.dataset.fadeTo = toFaded ? "1" : "0";
+              body.style.maxHeight = fromCollapsed ? "0px" : "9999px";
+              body.style.opacity = fromCollapsed ? "0" : "1";
+              body.style.color = fromFaded ? "var(--memory)" : "var(--text)";
+
+              titleRow.appendChild(title);
+              titleRow.appendChild(chev);
+              content.appendChild(titleRow);
+              content.appendChild(body);
+              li.appendChild(num);
+              li.appendChild(content);
+              ol.appendChild(li);
+            }
+
+            outlineEl.appendChild(ol);
+            finalizeThoughtCollapseAnimations();
+            return;
+          }
+
+          function toRoman(n) {
+            const vals = [
+              [1000, "M"],
+              [900, "CM"],
+              [500, "D"],
+              [400, "CD"],
+              [100, "C"],
+              [90, "XC"],
+              [50, "L"],
+              [40, "XL"],
+              [10, "X"],
+              [9, "IX"],
+              [5, "V"],
+              [4, "IV"],
+              [1, "I"],
+            ];
+            let x = n;
+            let out = "";
+            for (const [v, s] of vals) {
+              while (x >= v) {
+                out += s;
+                x -= v;
+              }
+            }
+            return out || "I";
+          }
+
+          function toLetter(n) {
+            // 1 -> A, 2 -> B, ... 26 -> Z, 27 -> AA
+            let x = n;
+            let out = "";
+            while (x > 0) {
+              x -= 1;
+              out = String.fromCharCode(65 + (x % 26)) + out;
+              x = Math.floor(x / 26);
+            }
+            return out || "A";
+          }
+
+          // Group thoughts by superTitle -> sectionTitle
+          const superGroups = [];
+          let curSuper = { title: "", sections: [] };
+          let curSection = { title: "", thoughts: [] };
+
+          function pushSection() {
+            if (curSection.thoughts.length) curSuper.sections.push(curSection);
+            curSection = { title: "", thoughts: [] };
+          }
+          function pushSuper() {
+            pushSection();
+            if (curSuper.sections.length) superGroups.push(curSuper);
+            curSuper = { title: "", sections: [] };
+          }
+
+          for (const th of engine.thoughts) {
+            const sup = (th.superTitle || "").trim();
+            const sec = (th.sectionTitle || "").trim();
+
+            if (sup !== curSuper.title) {
+              pushSuper();
+              curSuper.title = sup;
+            }
+            if (sec !== curSection.title) {
+              pushSection();
+              curSection.title = sec;
+            }
+            curSection.thoughts.push(th);
+          }
+          pushSuper();
+
+          // NOTE: Placeholder rendering of ALL future planned supers/sections can cause large
+          // empty A/B/… headers to flood the stage for long transcripts.
+          // We intentionally render ONLY supers/sections encountered so far.
+
+          // Only show supers after a second super exists.
+          const multiSuperNeed = revealSuperLayer;
+
+          // Never reveal a parent title before children have labels.
+          // "Named child" = a thought with labelStatus==="ready" and a non-empty label.
+          const namedThoughtCountBySuper = new Map(); // superTitle -> count
+          const namedThoughtCountBySectionKey = new Map(); // `${super}||${section}` -> count
+          for (const th of engine.thoughts) {
+            if (!th) continue;
+            const sup = (th.superTitle || "").trim();
+            const sec = (th.sectionTitle || "").trim();
+            const named = th.labelStatus === "ready" && (th.label || "").trim().length > 0;
+            if (!named) continue;
+            namedThoughtCountBySuper.set(sup, (namedThoughtCountBySuper.get(sup) || 0) + 1);
+            namedThoughtCountBySectionKey.set(`${sup}||${sec}`, (namedThoughtCountBySectionKey.get(`${sup}||${sec}`) || 0) + 1);
+          }
+
+          let shownSuperIdx = 0;
+          for (const sg of superGroups) {
+            const populatedSections = sg.sections.filter((secg) =>
+              secg.thoughts.some((th) => th.utterances && th.utterances.some((u) => (u.text || "").trim()))
+            ).length;
+            // Don't introduce the super layer until there is a second super.
+            const showSuper = revealSuperLayer;
+            let superChildrenEl = null;
+
+            if (showSuper) {
+              shownSuperIdx += 1;
+              const supTitle = (sg.title || "").trim();
+              const supRow = document.createElement("div");
+              supRow.className = "superTitle superRowGrid clickable";
+              supRow.dataset.animKey = `super:${supTitle || shownSuperIdx}`;
+              supRow.dataset.folderKey = `super:${supTitle}`;
+              if (!prevRects.has(supRow.dataset.animKey)) supRow.dataset.enter = "1";
+
+              const supNum = document.createElement("div");
+              supNum.className = "superNum";
+              supNum.textContent = `${toRoman(shownSuperIdx)}.`;
+
+              const supHeader = document.createElement("div");
+              supHeader.className = "headerRow";
+
+              const supLeft = document.createElement("div");
+              supLeft.className = "headerLeft";
+              const supClosed = closedSupers.has(supTitle);
+              const hasNamedChildren = (namedThoughtCountBySuper.get(supTitle) || 0) > 0;
+              const canRevealSuperTitle =
+                (supClosed && (hasNamedChildren || scriptedMode)) || forceRevealSupers.has(supTitle);
+              if (canRevealSuperTitle && !superEstablishedAtStep.has(supTitle)) {
+                superEstablishedAtStep.set(supTitle, streamStep);
+              }
+              const D = clampInt(config.parentTitleRevealAfterSteps, 0, 40);
+              const establishedAt = superEstablishedAtStep.get(supTitle);
+              const delayPassed =
+                canRevealSuperTitle && (D === 0 || (establishedAt != null && streamStep - establishedAt >= D));
+              const display = (superDisplayTitleByKey.get(supTitle) || supTitle || "").trim();
+              const supText = delayPassed ? display : "";
+              supLeft.textContent = supText;
+
+              const supChev = document.createElement("div");
+              supChev.className = "chev";
+              const supKey = supTitle;
+              const supIsCollapsed = !!superCollapsed.get(supKey);
+              supChev.textContent = supIsCollapsed ? "▸" : "▾";
+
+              supHeader.addEventListener("click", () => {
+                manualSuperToggles.add(supKey);
+                superCollapsed.set(supKey, !supIsCollapsed);
+                render();
+              });
+
+              supHeader.appendChild(supLeft);
+              supHeader.appendChild(supChev);
+              supRow.appendChild(supNum);
+              supRow.appendChild(supHeader);
+              outlineEl.appendChild(supRow);
+
+              // Indent all sections/thoughts under this super.
+              superChildrenEl = document.createElement("div");
+              superChildrenEl.className = "superChildren";
+            }
+
+            // RADICAL: always show section headers once a section exists.
+            // Title is blank while section is open; revealed after it closes.
+            const showSections = true;
+
+            // If super is collapsed, we still render its children wrapper so it can animate closed.
+            const supTitle = (sg.title || "").trim();
+            // (Children wrapper collapse/expand is handled when we append `superChildrenEl`.)
+
+            const sectionMount = superChildrenEl || outlineEl;
+
+            // Render sections using encounter order, not derived heuristics.
+            const supKeyForOrder = (supTitle || "").trim();
+            const orderedSecs = sectionOrderBySuper.get(supKeyForOrder) || [];
+
+            let secIdx = 0;
+            for (const secTitleRaw of orderedSecs) {
+              secIdx += 1;
+              const secTitle = (secTitleRaw || "").trim();
+              if (!secTitle) continue;
+
+              const isClosed = closedSections.has(`${supKeyForOrder}||${secTitle}`);
+              const secIsCollapsed = !!sectionCollapsed.get(`${supTitle}||${secTitle}`);
+
+              const sh = document.createElement("div");
+              sh.className = "sectionTitle sectionRowGrid clickable";
+              sh.dataset.animKey = `section:${supKeyForOrder}||${secTitle}`;
+              sh.dataset.folderKey = `section:${supTitle}||${secTitle}`;
+              if (!prevRects.has(sh.dataset.animKey)) sh.dataset.enter = "1";
+
+              const secNum = document.createElement("div");
+              secNum.className = "sectionNum";
+              secNum.textContent = `${toLetter(secIdx)}.`;
+
+              const header = document.createElement("div");
+              header.className = "headerRow";
+
+              const left = document.createElement("div");
+              left.className = "headerLeft";
+              // Never show section title until at least one child thought in the section is named.
+              const hasNamedChildren = (namedThoughtCountBySectionKey.get(`${supKeyForOrder}||${secTitle}`) || 0) > 0;
+              const canRevealSectionTitle = isClosed && (hasNamedChildren || scriptedMode);
+              if (canRevealSectionTitle && !sectionEstablishedAtStep.has(`${supKeyForOrder}||${secTitle}`)) {
+                sectionEstablishedAtStep.set(`${supKeyForOrder}||${secTitle}`, streamStep);
+              }
+              // For sections: once closed (at the moment the NEXT section's first child appears),
+              // reveal immediately (so II.A names itself when II.B.1 begins).
+              left.textContent = canRevealSectionTitle ? `${secTitle}` : "";
+
+              const chev = document.createElement("div");
+              chev.className = "chev";
+              chev.textContent = secIsCollapsed ? "▸" : "▾";
+
+              header.addEventListener("click", () => {
+                manualSectionToggles.add(`${supTitle}||${secTitle}`);
+                sectionCollapsed.set(`${supTitle}||${secTitle}`, !secIsCollapsed);
+                render();
+              });
+
+              header.appendChild(left);
+              header.appendChild(chev);
+              sh.appendChild(secNum);
+              sh.appendChild(header);
+              sectionMount.appendChild(sh);
+
+              // Collapsible section children wrapper (so "A closes" can animate).
+              const sectionChildren = document.createElement("div");
+              sectionChildren.className = "groupChildren";
+              const sectionGroupKey = `section:${supTitle}||${secTitle}`;
+              sectionChildren.dataset.groupKey = sectionGroupKey;
+              const toGroupCollapsed = !!secIsCollapsed;
+              const fromGroupCollapsed = prevGroupMap.has(sectionGroupKey) ? !!prevGroupMap.get(sectionGroupKey) : toGroupCollapsed;
+              if (fromGroupCollapsed !== toGroupCollapsed) hasCollapseTransition = true;
+              nextGroupMap.set(sectionGroupKey, toGroupCollapsed);
+              sectionChildren.dataset.collapseFrom = fromGroupCollapsed ? "1" : "0";
+              sectionChildren.dataset.collapseTo = toGroupCollapsed ? "1" : "0";
+              sectionChildren.style.maxHeight = fromGroupCollapsed ? "0px" : "9999px";
+              sectionChildren.style.opacity = fromGroupCollapsed ? "0" : "1";
+
+              const ol = document.createElement("ol");
+              ol.className = "outlineList childrenIndent";
+
+              // Collect thoughts for this section.
+              const thoughts = engine.thoughts.filter((th) => (th.sectionTitle || "").trim() === secTitle && (th.superTitle || "").trim() === (supTitle || "").trim());
+
+              for (let i = 0; i < thoughts.length; i++) {
+                const th = thoughts[i];
+                const bodyText = th.utterances.map((u) => u.text).join(" ").trim();
+                if (!bodyText) continue; // don't render empty thoughts
+
+                const li = document.createElement("li");
+                li.className = "outlineItem";
+                li.dataset.animKey = `thought:${th.id}`;
+                if (!prevRects.has(li.dataset.animKey)) li.dataset.enter = "1";
+
+            const num = document.createElement("div");
+            num.className = "outlineNum";
+
+            const content = document.createElement("div");
+            content.className = "outlineContent";
+
+            const titleRow = document.createElement("div");
+            titleRow.className = "outlineTitleRow";
+
+            const title = document.createElement("div");
+            title.className = "outlineTitle";
+
+            const label = th.labelStatus === "ready" ? (th.label || "") : "";
+            if (label) {
+              title.textContent = label;
+              title.title = label;
+            } else {
+              // If the item is already collapsed/was manually toggled, show a subtle hint so it isn't "blank".
+              const hintable = !!(th.ui && (th.ui.collapsed || th.ui.manual));
+              if (hintable) {
+                title.textContent = "…";
+                title.style.color = "var(--muted)";
+              } else {
+                // reserve the line but don't show chrome
+                title.classList.add("placeholder");
+                title.textContent = "placeholder";
+              }
+            }
+
+            const chev = document.createElement("div");
+            chev.className = "chev";
+            const canToggle = !!label || !!(th.ui && (th.ui.collapsed || th.ui.manual));
+            if (canToggle) {
+              if (!th.ui) th.ui = { collapsed: false, manual: false, labelReadyAtStep: null };
+              const collapsed = !!th.ui.collapsed;
+              chev.textContent = collapsed ? "▸" : "▾";
+              titleRow.classList.add("clickable");
+              titleRow.addEventListener("click", () => {
+                if (!th.ui) th.ui = { collapsed: false, manual: false, labelReadyAtStep: null };
+                th.ui.manual = true;
+                th.ui.collapsed = !th.ui.collapsed;
+                render();
+              });
+            } else {
+              chev.textContent = "";
+            }
+
+            const body = document.createElement("div");
+            body.className = "outlineBody";
+
+            body.textContent = bodyText || "";
+            // Smooth collapse/expand: render from previous state -> animate to current.
+            if (!th.ui) th.ui = { collapsed: false, manual: false, labelReadyAtStep: null };
+            const thoughtId = th.id;
+            const toCollapsed = !!th.ui.collapsed;
+            const fromCollapsed = prevMap.has(thoughtId) ? !!prevMap.get(thoughtId) : toCollapsed;
+            nextMap.set(thoughtId, toCollapsed);
+            const toFaded = !!label;
+            const fromFaded = prevFadeMap.has(thoughtId) ? !!prevFadeMap.get(thoughtId) : toFaded;
+            nextFadeMap.set(thoughtId, toFaded);
+            body.dataset.thoughtId = thoughtId;
+            body.dataset.collapseFrom = fromCollapsed ? "1" : "0";
+            body.dataset.collapseTo = toCollapsed ? "1" : "0";
+            body.dataset.fadeFrom = fromFaded ? "1" : "0";
+            body.dataset.fadeTo = toFaded ? "1" : "0";
+            body.style.maxHeight = fromCollapsed ? "0px" : "9999px";
+            body.style.opacity = fromCollapsed ? "0" : "1";
+            body.style.color = fromFaded ? "var(--memory)" : "var(--text)";
+
+            titleRow.appendChild(title);
+            titleRow.appendChild(chev);
+            content.appendChild(titleRow);
+            content.appendChild(body);
+
+            li.appendChild(num);
+            li.appendChild(content);
+                ol.appendChild(li);
+              }
+
+              sectionChildren.appendChild(ol);
+              sectionMount.appendChild(sectionChildren);
+            }
+
+            if (showSuper && superChildrenEl) {
+              // Animate the super's collapse/expand via its wrapper.
+              superChildrenEl.classList.add("groupChildren");
+              const superGroupKey = `super:${supTitle}`;
+              superChildrenEl.dataset.groupKey = superGroupKey;
+              const supIsCollapsed = !!superCollapsed.get(supTitle);
+              const toGroupCollapsed = !!supIsCollapsed;
+              const fromGroupCollapsed = prevGroupMap.has(superGroupKey) ? !!prevGroupMap.get(superGroupKey) : toGroupCollapsed;
+              if (fromGroupCollapsed !== toGroupCollapsed) hasCollapseTransition = true;
+              nextGroupMap.set(superGroupKey, toGroupCollapsed);
+              superChildrenEl.dataset.collapseFrom = fromGroupCollapsed ? "1" : "0";
+              superChildrenEl.dataset.collapseTo = toGroupCollapsed ? "1" : "0";
+              superChildrenEl.style.maxHeight = fromGroupCollapsed ? "0px" : "9999px";
+              superChildrenEl.style.opacity = fromGroupCollapsed ? "0" : "1";
+
+              outlineEl.appendChild(superChildrenEl);
+            }
+          }
+        }
+
+        // Transcript UI removed (we still keep transcript internally).
+        if (viewMode !== "sentences") {
+          finalizeThoughtCollapseAnimations();
+        }
+        if (outlineScrollEl && renderWasPinned) window.requestAnimationFrame(() => maybeScrollToBottom(outlineScrollEl));
+      }
+
+      function scheduleLabel(thoughtId) {
+        if (labelJobs.some((j) => j.thoughtId === thoughtId)) return;
+        labelJobs.push({ thoughtId, dueAt: Date.now() + config.labelDelayMs });
+      }
+
+      function scheduleLabelText(thoughtId, text) {
+        const cleaned = (text || "").trim();
+        if (!cleaned) return;
+        // allow multiple updates per thought, but avoid duplicates
+        const dup = labelJobs.some((j) => j.thoughtId === thoughtId && (j.text || "") === cleaned);
+        if (dup) return;
+        labelJobs.push({ thoughtId, dueAt: Date.now() + config.labelDelayMs, text: cleaned });
+      }
+
+      function runLabelJobs() {
+        const t = Date.now();
+        const ready = labelJobs.filter((j) => j.dueAt <= t);
+        // Note: even if there are no label jobs, we still want rolling-window collapses to run.
+        labelJobs = labelJobs.filter((j) => j.dueAt > t);
+        for (const job of ready) {
+          const th = engine.thoughts.find((x) => x.id === job.thoughtId);
+          if (!th) continue;
+          if (!th.utterances.length) continue;
+          const explicit = (job.text || "").trim();
+          th.label = explicit ? explicit : suggestLabel(th);
+          if (!th.label) continue;
+          th.labelStatus = "ready";
+          if (!th.ui) th.ui = { collapsed: false, manual: false, labelReadyAtStep: null };
+          if (th.ui.labelReadyAtStep == null) th.ui.labelReadyAtStep = streamStep;
+
+          // Schedule a per-thought rolling-window collapse based on when it was spoken.
+          const W = clampInt(config.liveWindowMs, 0, 10 * 60_000);
+          if (W > 0) {
+            const lastMs = th.utterances[th.utterances.length - 1].tMs || Date.now();
+            const dueAt = lastMs + W;
+            windowCollapseDueAtByThoughtId.set(th.id, dueAt);
+          }
+        }
+
+        // Run rolling-window collapses in time order so they don't batch-collapse.
+        const now = Date.now();
+        const W = clampInt(config.liveWindowMs, 0, 10 * 60_000);
+        if (W > 0 && windowCollapseDueAtByThoughtId.size) {
+          // Collapse at most one per tick to avoid "many collapse at once" visuals.
+          let nextId = null;
+          let nextDue = Infinity;
+          for (const [id, dueAt] of windowCollapseDueAtByThoughtId.entries()) {
+            if (dueAt < nextDue) {
+              nextDue = dueAt;
+              nextId = id;
+            }
+          }
+          if (nextId && nextDue <= now) {
+            const idx = engine.thoughts.findIndex((x) => x && x.id === nextId);
+            const th = idx >= 0 ? engine.thoughts[idx] : null;
+            if (th && th.ui && !th.ui.manual && !th.ui.collapsed) {
+              // Never collapse before a meaningful title exists.
+              const hasTitle = th.labelStatus === "ready" && (th.label || "").trim().length > 0;
+              if (!hasTitle) {
+                const planned = (th.plannedTitle || "").trim();
+                if (planned) {
+                  th.label = planned;
+                  th.labelStatus = "ready";
+                  if (th.ui.labelReadyAtStep == null) th.ui.labelReadyAtStep = streamStep;
+                } else {
+                  const guess = suggestLabel(th);
+                  if (guess && guess.trim()) {
+                    th.label = guess.trim();
+                    th.labelStatus = "ready";
+                    if (th.ui.labelReadyAtStep == null) th.ui.labelReadyAtStep = streamStep;
+                  }
+                }
+              }
+
+              const hasTitleNow = th.labelStatus === "ready" && (th.label || "").trim().length > 0;
+              if (hasTitleNow && idx !== engine.thoughts.length - 1) {
+                th.ui.collapsed = true;
+                windowCollapseDueAtByThoughtId.delete(nextId);
+              } else {
+                // Try again shortly (gives the title time to appear first).
+                windowCollapseDueAtByThoughtId.set(nextId, now + 250);
+              }
+            } else {
+              windowCollapseDueAtByThoughtId.delete(nextId);
+            }
+          }
+        }
+
+        // Endcap jobs: slow recession after a super closes.
+        // Order: collapse thought bodies one-by-one within each section → collapse section wrapper
+        // → next section → (after a beat) collapse the super wrapper.
+        if (endcapJobs.length) {
+          const job = endcapJobs[0];
+          const now2 = Date.now();
+          if (!job.nextAt) job.nextAt = now2 + ENDCAP_START_DELAY_MS;
+          // If we're approaching the super collapse, reveal its title slightly before it closes.
+          if (job.phase === "superDelay") {
+            const sup = (job.supTitle || "").trim();
+            if (sup) {
+              const revealAt = job.revealAt || 0;
+              if (revealAt && now2 >= revealAt) {
+                forceRevealSupers.add(sup);
+                const D = clampInt(config.parentTitleRevealAfterSteps, 0, 40);
+                if (!superEstablishedAtStep.has(sup)) superEstablishedAtStep.set(sup, Math.max(0, streamStep - D));
+                // ensure we only do this once
+                job.revealAt = 0;
+              }
+            }
+          }
+          if (now2 >= job.nextAt) {
+            const sup = (job.supTitle || "").trim();
+            const secs = sectionOrderBySuper.get(sup) || [];
+            const secTitle = secs[job.sectionIdx] || "";
+            const secKey = `${sup}||${(secTitle || "").trim()}`;
+
+            function oldestUncollapsedThoughtInSection(superTitle, sectionTitle) {
+              let best = null; // { idx, th, lastMs }
+              const liveIdx = engine.thoughts.length - 1;
+              for (let i = 0; i < engine.thoughts.length; i++) {
+                const th = engine.thoughts[i];
+                if (!th || !th.utterances || !th.utterances.length) continue;
+                if ((th.superTitle || "").trim() !== (superTitle || "").trim()) continue;
+                if ((th.sectionTitle || "").trim() !== (sectionTitle || "").trim()) continue;
+                if (!th.ui) th.ui = { collapsed: false, manual: false, labelReadyAtStep: null };
+                if (th.ui.manual) continue;
+                if (th.ui.collapsed) continue;
+                if (i === liveIdx) continue;
+                // Don't endcap-collapse until we have a real title (or can produce one).
+                const hasTitle = th.labelStatus === "ready" && (th.label || "").trim().length > 0;
+                const planned = (th.plannedTitle || "").trim();
+                if (!hasTitle && !planned) continue;
+                const lastMs =
+                  (th.utterances && th.utterances.length ? th.utterances[th.utterances.length - 1].tMs : 0) || 0;
+                if (!best || lastMs < best.lastMs) best = { idx: i, th, lastMs };
+              }
+              return best;
+            }
+
+            if (job.phase === "thoughts") {
+              if (!secTitle) {
+                job.phase = "superDelay";
+                job.revealAt = now2 + Math.max(0, ENDCAP_SUPER_AFTER_CHILDREN_MS - ENDCAP_SUPER_REVEAL_LEAD_MS);
+                job.nextAt = now2 + ENDCAP_SUPER_AFTER_CHILDREN_MS;
+              } else {
+                const found = oldestUncollapsedThoughtInSection(sup, secTitle);
+                if (found) {
+                  // Give the first "Opening" bullet extra time before it collapses.
+                  // This keeps Opening #1 on screen longer than the rest.
+                  const isOpening = (secTitle || "").trim().toLowerCase() === "opening";
+                  if (isOpening && !job._openingFirstBulletWaited) {
+                    job._openingFirstBulletWaited = true;
+                    job.nextAt = now2 + ENDCAP_THOUGHT_STEP_MS * ENDCAP_OPENING_FIRST_BULLET_EXTRA_CLICKS;
+                  } else {
+                  // Ensure the title appears before collapsing.
+                  const planned = (found.th.plannedTitle || "").trim();
+                  const hasTitle = found.th.labelStatus === "ready" && (found.th.label || "").trim().length > 0;
+                  if (!hasTitle) {
+                    if (planned) {
+                      found.th.label = planned;
+                      found.th.labelStatus = "ready";
+                      if (found.th.ui.labelReadyAtStep == null) found.th.ui.labelReadyAtStep = streamStep;
+                    } else {
+                      const guess = suggestLabel(found.th);
+                      if (guess && guess.trim()) {
+                        found.th.label = guess.trim();
+                        found.th.labelStatus = "ready";
+                        if (found.th.ui.labelReadyAtStep == null) found.th.ui.labelReadyAtStep = streamStep;
+                      }
+                    }
+                    // Give the title a moment to appear before collapsing the body.
+                    job.nextAt = now2 + 220;
+                  } else {
+                    found.th.ui.collapsed = true;
+                    job.nextAt = now2 + ENDCAP_THOUGHT_STEP_MS;
+                  }
+                  }
+                } else {
+                  job.phase = "section";
+                  // Wait longer after the last child closes before collapsing the section itself
+                  // (gives a slow, steady recession and time for newer lines to fill below).
+                  job.nextAt = now2 + ENDCAP_THOUGHT_STEP_MS * ENDCAP_SECTION_AFTER_CHILDREN_CLICKS;
+                }
+              }
+            } else if (job.phase === "section") {
+              if (secTitle && !manualSectionToggles.has(secKey) && !sectionCollapsed.get(secKey)) {
+                sectionCollapsed.set(secKey, true);
+              }
+              job.phase = "betweenSections";
+              job.nextAt = now2 + ENDCAP_SECTION_STEP_MS;
+            } else if (job.phase === "betweenSections") {
+              job.sectionIdx += 1;
+              if (job.sectionIdx >= secs.length) {
+                job.phase = "superDelay";
+                job.revealAt = now2 + Math.max(0, ENDCAP_SUPER_AFTER_CHILDREN_MS - ENDCAP_SUPER_REVEAL_LEAD_MS);
+                job.nextAt = now2 + ENDCAP_SUPER_AFTER_CHILDREN_MS;
+              } else {
+                job.phase = "thoughts";
+                job.nextAt = now2 + ENDCAP_BETWEEN_SECTIONS_MS;
+              }
+            } else if (job.phase === "superDelay") {
+              job.phase = "super";
+              job.nextAt = now2 + 0;
+            } else if (job.phase === "super") {
+              if (sup && !manualSuperToggles.has(sup) && !superCollapsed.get(sup)) {
+                superCollapsed.set(sup, true);
+              }
+              endcapJobs.shift();
+            } else {
+              // Unknown phase; drop it safely.
+              endcapJobs.shift();
+            }
+          }
+        }
+
+        // Auto-name Roman numeral titles once both A and B have named children.
+        maybeAutoNameSupers();
+
+        render();
+      }
+
+      function enqueueEndcapForSuper(supTitleRaw) {
+        const supTitle = (supTitleRaw || "").trim();
+        if (!supTitle) return;
+        // Avoid enqueuing duplicates.
+        if (endcapJobs.some((j) => (j.supTitle || "").trim() === supTitle)) return;
+        endcapJobs.push({ supTitle, sectionIdx: 0, phase: "thoughts", nextAt: Date.now() + ENDCAP_START_DELAY_MS });
+      }
+
+      function startLabelTimer() {
+        if (labelTimer) return;
+        labelTimer = window.setInterval(runLabelJobs, 180);
+      }
+
+      function stopLabelTimer() {
+        if (!labelTimer) return;
+        window.clearInterval(labelTimer);
+        labelTimer = null;
+      }
+
+      function makeUtterance(text, tMs = Date.now()) {
+        return { id: makeId("u"), tMs, text };
+      }
+
+      function ingest(text, { forceBoundary = false, tMs = Date.now(), plannedTitle = "", sectionTitle = "", superTitle = "" } = {}) {
+        // Schedule any pending summaries only AFTER we display the next sentence.
+        const scheduleAfterThisIngest = pendingLabelUpdates.slice();
+        pendingLabelUpdates = [];
+
+        const cleaned = stripLeadingFillers(text);
+        if (!cleaned) return; // ignore pure filler
+
+        // Drop low-content utterances so we don't create tiny meaningless items.
+        // (Especially important for transcripts with lots of "yeah / right / great".)
+        const cleanedLower = cleaned.toLowerCase();
+        const wc = countWords(cleaned);
+        const keyTokens = tokenizeForKeywords(cleaned);
+        const looksLikeAck = /^(yeah|yep|right|great|nice|ok|okay|alright|all right)\b/.test(cleanedLower) && wc <= 7;
+        const looksLikeFillerOnly = keyTokens.length === 0 && wc <= 6;
+        if (looksLikeAck || looksLikeFillerOnly) return;
+
+        const u = makeUtterance(cleaned, tMs);
+        transcript.push(u);
+        updateGlobalFreq(u.text);
+        streamStep += 1;
+        const beforeThoughtCount = engine.thoughts.length;
+        ingestUtterance({ utterance: u, state: engine, config, forceBoundary, plannedTitle, sectionTitle, superTitle });
+        const afterThoughtCount = engine.thoughts.length;
+
+        // If we created a new thought, DO NOT show the previous label yet.
+        // Wait until the NEXT sentence is displayed.
+        if (afterThoughtCount > beforeThoughtCount) {
+          const prev = engine.thoughts[afterThoughtCount - 2];
+          if (prev && prev.labelStatus === "pending" && prev.utterances.length) {
+            const planned = (prev.plannedTitle || "").trim();
+            if (planned) pendingLabelUpdates.push({ thoughtId: prev.id, text: planned });
+            else pendingLabelUpdates.push({ thoughtId: prev.id });
+          }
+
+        }
+
+        // Keep rolling-window collapse schedule up to date for all thoughts (not just labeled ones),
+        // so bodies can start collapsing promptly once they age out of the live window.
+        const W = clampInt(config.liveWindowMs, 0, 10 * 60_000);
+        if (W > 0) {
+          for (const th of engine.thoughts) {
+            if (!th || !th.utterances || !th.utterances.length) continue;
+            if (!th.ui) th.ui = { collapsed: false, manual: false, labelReadyAtStep: null };
+            if (th.ui.manual) continue;
+            if (th.ui.collapsed) continue;
+            const lastMs = th.utterances[th.utterances.length - 1].tMs || Date.now();
+            windowCollapseDueAtByThoughtId.set(th.id, lastMs + W);
+          }
+        }
+
+        startLabelTimer();
+        render();
+
+        // Now that THIS sentence is on screen, we can schedule summaries for thoughts that closed earlier.
+        for (const u of scheduleAfterThisIngest) {
+          if (!u || !u.thoughtId) continue;
+          if (u.text) scheduleLabelText(u.thoughtId, u.text);
+          else scheduleLabel(u.thoughtId);
+        }
+
+        // Auto-collapse after a few more streamed steps.
+        const N = clampInt(config.autoCollapseAfterSteps, 0, 200);
+        if (N > 0) {
+          const OPENING_FIRST_BULLET_EXTRA_STEPS = 6;
+          const firstThoughtIdBySectionKey = new Map(); // secKey -> thoughtId (oldest in that section by encounter)
+          for (let i = 0; i < engine.thoughts.length; i++) {
+            const th = engine.thoughts[i];
+            if (!th || th.labelStatus !== "ready") continue;
+            if (!th.ui) continue;
+            if (th.ui.manual) continue;
+            if (th.ui.collapsed) continue;
+            if (th.ui.labelReadyAtStep == null) continue;
+            if (i === engine.thoughts.length - 1) continue; // don't collapse live thought
+            // Don't auto-collapse within the currently-open section; wait until the section closes.
+            const sup = (th.superTitle || "").trim();
+            const sec = (th.sectionTitle || "").trim();
+            const secKey = `${sup}||${sec}`;
+            if (sec && !firstThoughtIdBySectionKey.has(secKey)) firstThoughtIdBySectionKey.set(secKey, th.id);
+            if (sec && !closedSections.has(secKey)) continue;
+            // Critical: when a section *just* closes (I.B.1 appears), don't instantly collapse I.A
+            // just because its label got ready earlier. Reset the timer at section-close.
+            const closedAt = sec ? sectionClosedAtStep.get(secKey) : null;
+            const anchor = Math.max(th.ui.labelReadyAtStep ?? 0, closedAt ?? 0);
+            const isOpeningFirst =
+              sec.trim().toLowerCase() === "opening" && firstThoughtIdBySectionKey.get(secKey) === th.id;
+            const required = N + (isOpeningFirst ? OPENING_FIRST_BULLET_EXTRA_STEPS : 0);
+            if (streamStep - anchor >= required) th.ui.collapsed = true;
+          }
+        }
+
+        // Parent-triggered collapse wave:
+        // Once a parent title is established, wait P more steps, then start collapsing named children.
+        // IMPORTANT: Collapse ONE child per tick (oldest-first) so siblings don't disappear simultaneously.
+        const P = clampInt(config.parentCollapseAfterSteps, 0, 40);
+        if (P > 0) {
+          const liveIdx = engine.thoughts.length - 1;
+
+          function collapseOldestInSection(sectionKey) {
+            let best = null; // { idx, th, lastMs }
+            const now = Date.now();
+            const W = clampInt(config.liveWindowMs, 0, 10 * 60_000);
+            for (let i = 0; i < engine.thoughts.length; i++) {
+              const th = engine.thoughts[i];
+              if (!th || th.labelStatus !== "ready") continue;
+              if (!(th.label || "").trim()) continue;
+              if (!th.ui) continue;
+              if (th.ui.manual) continue;
+              if (th.ui.collapsed) continue;
+              if (i === liveIdx) continue;
+              const sup = (th.superTitle || "").trim();
+              const sec = (th.sectionTitle || "").trim();
+              if (`${sup}||${sec}` !== sectionKey) continue;
+              const lastMs = (th.utterances && th.utterances.length ? th.utterances[th.utterances.length - 1].tMs : 0) || 0;
+              // Don't collapse by parent-wave until it's outside the live window.
+              if (W > 0) {
+                const dueAt = windowCollapseDueAtByThoughtId.get(th.id) || lastMs + W;
+                if (dueAt > now) continue;
+              }
+              if (!best || lastMs < best.lastMs) best = { idx: i, th, lastMs };
+            }
+            if (!best) return false;
+            best.th.ui.collapsed = true;
+            return true;
+          }
+
+          function hasAnyUncollapsedInSection(sectionKey) {
+            for (let i = 0; i < engine.thoughts.length; i++) {
+              const th = engine.thoughts[i];
+              if (!th || th.labelStatus !== "ready") continue;
+              if (!(th.label || "").trim()) continue;
+              if (!th.ui) continue;
+              if (th.ui.manual) continue;
+              if (th.ui.collapsed) continue;
+              if (i === liveIdx) continue;
+              const sup = (th.superTitle || "").trim();
+              const sec = (th.sectionTitle || "").trim();
+              if (`${sup}||${sec}` === sectionKey) return true;
+            }
+            return false;
+          }
+
+          // Sections (prefer these over supers to avoid double-collapsing in one tick)
+          let collapsedByWaveThisTick = false;
+          for (const [key, establishedAt] of sectionEstablishedAtStep.entries()) {
+            if (collapsedByWaveThisTick) break;
+            if (sectionAutoCollapsed.has(key)) continue;
+            if (streamStep - establishedAt < P) continue;
+            const did = collapseOldestInSection(key);
+            if (did) {
+              collapsedByWaveThisTick = true;
+            } else {
+              // Nothing left to collapse in this section.
+              sectionAutoCollapsed.add(key);
+            }
+          }
+
+          // Supers
+          for (const [supTitle, establishedAt] of superEstablishedAtStep.entries()) {
+            if (collapsedByWaveThisTick) break;
+            const sup = (supTitle || "").trim();
+            if (!sup) continue;
+            if (superAutoCollapsed.has(sup)) continue;
+            if (streamStep - establishedAt < P) continue;
+            // Collapse the oldest named child in this super.
+            let best = null; // { idx, th, lastMs }
+            const now = Date.now();
+            const W = clampInt(config.liveWindowMs, 0, 10 * 60_000);
+            for (let i = 0; i < engine.thoughts.length; i++) {
+              const th = engine.thoughts[i];
+              if (!th || th.labelStatus !== "ready") continue;
+              if (!(th.label || "").trim()) continue;
+              if (!th.ui) continue;
+              if (th.ui.manual) continue;
+              if (th.ui.collapsed) continue;
+              if (i === liveIdx) continue;
+              if ((th.superTitle || "").trim() !== sup) continue;
+              const lastMs = (th.utterances && th.utterances.length ? th.utterances[th.utterances.length - 1].tMs : 0) || 0;
+              // Don't collapse by parent-wave until it's outside the live window.
+              if (W > 0) {
+                const dueAt = windowCollapseDueAtByThoughtId.get(th.id) || lastMs + W;
+                if (dueAt > now) continue;
+              }
+              if (!best || lastMs < best.lastMs) best = { idx: i, th, lastMs };
+            }
+            if (best) {
+              best.th.ui.collapsed = true;
+              collapsedByWaveThisTick = true;
+            } else {
+              superAutoCollapsed.add(sup);
+            }
+          }
+        }
+
+        // Rolling-window collapse is handled via scheduled per-thought due times in runLabelJobs(),
+        // so we don't batch-collapse multiple paragraphs on the same ingest tick.
+      }
+
+      function resetAll() {
+        streamingQueue = [];
+        fullQueue = [];
+        queueIndex = 0;
+        streamHistory = [];
+        paused = false;
+        if (streamTimer) {
+          window.clearInterval(streamTimer);
+          streamTimer = null;
+        }
+        labelJobs = [];
+        stopLabelTimer();
+        engine = newEngineState(Date.now());
+        transcript = [];
+        globalWordFreq = new Map();
+        pendingLabelThoughtIds = [];
+        pendingLabelUpdates = [];
+        scriptedMode = false;
+        plannedThoughtLabels = [];
+        prevCollapsedByThoughtId = new Map();
+        prevCollapsedByGroupKey = new Map();
+        manualSuperToggles = new Set();
+        manualSectionToggles = new Set();
+        forceRevealSupers = new Set();
+        superDisplayTitleByKey = new Map();
+        endcapJobs = [];
+        streamStep = 0;
+        currentSectionTitle = "";
+        currentSuperTitle = "";
+        streamEnded = false;
+        closedSupers = new Set();
+        superEstablishedAtStep = new Map();
+        sectionEstablishedAtStep = new Map();
+        superAutoCollapsed = new Set();
+        sectionAutoCollapsed = new Set();
+        windowCollapseDueAtByThoughtId = new Map();
+        superCollapsed = new Map();
+        sectionCollapsed = new Map();
+        sectionClosedAtStep = new Map();
+        superDisplayTitleByKey = new Map();
+        superOrder = [];
+        sectionOrderBySuper = new Map();
+        sectionTitleByKey = new Map();
+        closedSections = new Set();
+        scriptPlan = null;
+        pendingCloseSectionKey = "";
+        btnPauseToggle.disabled = true;
+        btnPauseToggle.textContent = "Pause";
+        if (btnBack10) btnBack10.disabled = true;
+        render();
+      }
+
+      // --- Text parsing ---
+      function splitIntoSentences(line) {
+        // Conservative sentence splitter: tries hard NOT to split aggressively.
+        const cleaned = (line || "").trim();
+        if (!cleaned) return [];
+        const s = cleaned.replace(/\s+/g, " ");
+
+        // Protect common abbreviations so we don't split them into fake sentences.
+        const ABBR = ["mr.", "mrs.", "ms.", "dr.", "prof.", "sr.", "jr.", "vs.", "e.g.", "i.e.", "etc."];
+        const DOT = "∯";
+        let protectedText = s;
+        for (const a of ABBR) {
+          const re = new RegExp(a.replace(/\./g, "\\."), "gi");
+          protectedText = protectedText.replace(re, (m) => m.replace(/\./g, DOT));
+        }
+        // Protect decimal numbers like 3.14
+        protectedText = protectedText.replace(/(\d)\.(\d)/g, `$1${DOT}$2`);
+
+        const parts = protectedText.split(/(?<=[.!?])\s+(?=[A-Z0-9"“(])/g);
+        return parts
+          .map((p) => p.replaceAll(DOT, ".").trim())
+          .filter(Boolean);
+      }
+
+      function buildStreamingQueueFromPaste(text) {
+        // Markup mode:
+        // - Lines starting with "@@super:" introduce a parent layer above sections.
+        // - Lines starting with "@@section:" introduce a new higher-level layer header.
+        // - Lines starting with "@@thought:" start a new thought (pre-designated boundary + title).
+        // - Non-directive lines are utterances (pre-designated splits).
+        //
+        // Example:
+        // @@thought: Building UI Tester Tab
+        // We already have a UI in place...
+        //
+        // Blank lines also force a new thought.
+
+        const raw = (text || "").replace(/\r\n/g, "\n");
+        const hasMarkup = /(^|\n)\s*@@(super|section|thought)\s*:/i.test(raw);
+        if (hasMarkup) {
+          plannedThoughtLabels = [];
+          const lines = raw.split("\n");
+          const queue = [];
+          const plannedSupers = [];
+          const plannedSectionsBySuper = new Map(); // superTitle -> sectionTitle[]
+          let forceNextBoundary = false;
+          let thoughtIdx = -1;
+          let pendingPlannedTitle = "";
+          let sectionTitle = "";
+          let superTitle = "";
+
+          function ensureSuperInPlan(title) {
+            const t = (title || "").trim();
+            if (!plannedSupers.includes(t)) plannedSupers.push(t);
+            if (!plannedSectionsBySuper.has(t)) plannedSectionsBySuper.set(t, []);
+          }
+          function pushSectionInPlan(sup, sec) {
+            const st = (sup || "").trim();
+            const ct = (sec || "").trim();
+            ensureSuperInPlan(st);
+            const arr = plannedSectionsBySuper.get(st);
+            if (ct && !arr.includes(ct)) arr.push(ct);
+          }
+
+          for (const rawLine of lines) {
+            const line0 = rawLine.trim();
+            if (!line0) {
+              // In markup mode, blank lines are just spacing (NOT boundaries).
+              continue;
+            }
+
+            const msp = line0.match(/^@@super\s*:\s*(.+)$/i);
+            if (msp) {
+              superTitle = (msp[1] || "").trim();
+              ensureSuperInPlan(superTitle);
+              queue.push({ type: "super", title: superTitle, scripted: true });
+              // a new parent layer should force a fresh thought on next utterance
+              forceNextBoundary = true;
+              // reset section label for display
+              sectionTitle = "";
+              continue;
+            }
+
+            const ms = line0.match(/^@@section\s*:\s*(.+)$/i);
+            if (ms) {
+              sectionTitle = (ms[1] || "").trim();
+              pushSectionInPlan(superTitle, sectionTitle);
+              queue.push({ type: "section", title: sectionTitle, scripted: true });
+              // starting a section should begin a new thought on next utterance
+              forceNextBoundary = true;
+              continue;
+            }
+
+            const m = line0.match(/^@@thought\s*:\s*(.+)$/i);
+            if (m) {
+              thoughtIdx += 1;
+              pendingPlannedTitle = (m[1] || "").trim();
+              plannedThoughtLabels[thoughtIdx] = pendingPlannedTitle;
+              forceNextBoundary = thoughtIdx > 0; // boundary happens before first utterance of this thought
+              continue;
+            }
+
+            // If no thought declared yet, create an implicit one.
+            if (thoughtIdx < 0) {
+              thoughtIdx = 0;
+              pendingPlannedTitle = "";
+              plannedThoughtLabels[thoughtIdx] = "";
+              forceNextBoundary = false;
+            }
+
+            // In markup mode, treat each non-directive line as one utterance (no auto splitting).
+            queue.push({
+              type: "utterance",
+              text: line0,
+              forceBoundary: forceNextBoundary,
+              scripted: true,
+              plannedTitle: pendingPlannedTitle,
+              sectionTitle,
+              superTitle,
+            });
+            forceNextBoundary = false;
+          }
+
+          // Attach plan for placeholder rendering.
+          queue._scriptPlan = {
+            supers: plannedSupers,
+            sectionsBySuper: Array.from(plannedSectionsBySuper.entries()),
+          };
+          return queue;
+        }
+
+        // Non-markup mode:
+        // - Merge wrapped lines into paragraphs
+        // - Blank lines create boundaries between paragraphs
+        // - Then optionally split paragraphs into sentences for animation
+        const lines = (text || "").replace(/\r\n/g, "\n").split("\n");
+        const paras = [];
+        let buf = "";
+        for (const rawLine of lines) {
+          const line = rawLine.trim();
+          if (!line) {
+            if (buf) paras.push(buf.trim());
+            buf = "";
+            paras.push(""); // paragraph break marker
+            continue;
+          }
+          buf = buf ? `${buf} ${line}` : line;
+        }
+        if (buf) paras.push(buf.trim());
+
+        const queue = [];
+        let forceNextBoundary = false;
+        const mode = (config.splitMode || "line").toLowerCase();
+
+        for (const p of paras) {
+          if (!p) {
+            forceNextBoundary = true;
+            continue;
+          }
+
+          if (mode === "line") {
+            queue.push({ text: p, forceBoundary: forceNextBoundary });
+            forceNextBoundary = false;
+            continue;
+          }
+
+          if (mode === "sentence") {
+            const sentences = splitIntoSentences(p);
+            for (const s of sentences) {
+              queue.push({ text: s, forceBoundary: forceNextBoundary });
+              forceNextBoundary = false;
+            }
+            continue;
+          }
+
+          // auto: only split when paragraph is long and clearly multi-sentence.
+          const hasManyPunct = (p.match(/[.!?]/g) || []).length >= 2;
+          const shouldSplit = p.length >= 220 && hasManyPunct;
+          if (!shouldSplit) {
+            queue.push({ text: p, forceBoundary: forceNextBoundary });
+            forceNextBoundary = false;
+            continue;
+          }
+          const sentences = splitIntoSentences(p);
+          for (const s of sentences) {
+            queue.push({ text: s, forceBoundary: forceNextBoundary });
+            forceNextBoundary = false;
+          }
+        }
+
+        return queue;
+      }
+
+      // --- Streaming ---
+      function deepClone(obj) {
+        try {
+          // structuredClone handles plain objects/arrays well in modern browsers.
+          if (typeof structuredClone === "function") return structuredClone(obj);
+        } catch {
+          // ignore
+        }
+        return JSON.parse(JSON.stringify(obj));
+      }
+
+      function pushStreamHistorySnapshot() {
+        // Keep memory bounded.
+        const MAX = 500;
+        const snap = {
+          timeMs: Date.now(),
+          queueIndex,
+          paused,
+          // Core state
+          engine: deepClone(engine),
+          transcript: deepClone(transcript),
+          globalWordFreq: Array.from(globalWordFreq.entries()),
+          pendingLabelThoughtIds: deepClone(pendingLabelThoughtIds),
+          pendingLabelUpdates: deepClone(pendingLabelUpdates),
+          streamStep,
+          streamEnded,
+          scriptedMode,
+          plannedThoughtLabels: deepClone(plannedThoughtLabels),
+          currentSectionTitle,
+          currentSuperTitle,
+          pendingCloseSectionKey,
+          // Hierarchy + UI state
+          closedSupers: Array.from(closedSupers.values()),
+          closedSections: Array.from(closedSections.values()),
+          sectionClosedAtStep: Array.from(sectionClosedAtStep.entries()),
+          forceRevealSupers: Array.from(forceRevealSupers.values()),
+          superDisplayTitleByKey: Array.from(superDisplayTitleByKey.entries()),
+          manualSuperToggles: Array.from(manualSuperToggles.values()),
+          manualSectionToggles: Array.from(manualSectionToggles.values()),
+          endcapJobs: deepClone(endcapJobs),
+          superOrder: deepClone(superOrder),
+          sectionOrderBySuper: Array.from(sectionOrderBySuper.entries()),
+          sectionTitleByKey: Array.from(sectionTitleByKey.entries()),
+          superCollapsed: Array.from(superCollapsed.entries()),
+          sectionCollapsed: Array.from(sectionCollapsed.entries()),
+          superEstablishedAtStep: Array.from(superEstablishedAtStep.entries()),
+          sectionEstablishedAtStep: Array.from(sectionEstablishedAtStep.entries()),
+          superAutoCollapsed: Array.from(superAutoCollapsed.values()),
+          sectionAutoCollapsed: Array.from(sectionAutoCollapsed.values()),
+          windowCollapseDueAtByThoughtId: Array.from(windowCollapseDueAtByThoughtId.entries()),
+        };
+        streamHistory.push(snap);
+        if (streamHistory.length > MAX) streamHistory = streamHistory.slice(streamHistory.length - MAX);
+      }
+
+      function restoreStreamHistorySnapshot(snap) {
+        if (!snap) return;
+        paused = !!snap.paused;
+        queueIndex = snap.queueIndex || 0;
+        engine = deepClone(snap.engine);
+        transcript = deepClone(snap.transcript);
+        globalWordFreq = new Map(snap.globalWordFreq || []);
+        pendingLabelThoughtIds = deepClone(snap.pendingLabelThoughtIds || []);
+        pendingLabelUpdates = deepClone(snap.pendingLabelUpdates || []);
+        streamStep = snap.streamStep || 0;
+        streamEnded = !!snap.streamEnded;
+        scriptedMode = !!snap.scriptedMode;
+        plannedThoughtLabels = deepClone(snap.plannedThoughtLabels || []);
+        currentSectionTitle = snap.currentSectionTitle || "";
+        currentSuperTitle = snap.currentSuperTitle || "";
+        pendingCloseSectionKey = snap.pendingCloseSectionKey || "";
+
+        closedSupers = new Set(snap.closedSupers || []);
+        closedSections = new Set(snap.closedSections || []);
+        sectionClosedAtStep = new Map(snap.sectionClosedAtStep || []);
+        forceRevealSupers = new Set(snap.forceRevealSupers || []);
+        superDisplayTitleByKey = new Map(snap.superDisplayTitleByKey || []);
+        manualSuperToggles = new Set(snap.manualSuperToggles || []);
+        manualSectionToggles = new Set(snap.manualSectionToggles || []);
+        endcapJobs = deepClone(snap.endcapJobs || []);
+        superOrder = deepClone(snap.superOrder || []);
+        sectionOrderBySuper = new Map(snap.sectionOrderBySuper || []);
+        sectionTitleByKey = new Map(snap.sectionTitleByKey || []);
+        superCollapsed = new Map(snap.superCollapsed || []);
+        sectionCollapsed = new Map(snap.sectionCollapsed || []);
+        superEstablishedAtStep = new Map(snap.superEstablishedAtStep || []);
+        sectionEstablishedAtStep = new Map(snap.sectionEstablishedAtStep || []);
+        superAutoCollapsed = new Set(snap.superAutoCollapsed || []);
+        sectionAutoCollapsed = new Set(snap.sectionAutoCollapsed || []);
+        windowCollapseDueAtByThoughtId = new Map(snap.windowCollapseDueAtByThoughtId || []);
+
+        // Avoid weird animation artifacts when jumping.
+        prevCollapsedByThoughtId = new Map();
+        prevFadedByThoughtId = new Map();
+        prevCollapsedByGroupKey = new Map();
+        if (renderCollapseRaf) {
+          window.cancelAnimationFrame(renderCollapseRaf);
+          renderCollapseRaf = null;
+        }
+      }
+
+      function startStreamTimerFromCurrentIndex() {
+        if (streamTimer) window.clearInterval(streamTimer);
+        streamTimer = window.setInterval(() => {
+          if (paused) return;
+          const item = fullQueue[queueIndex];
+          const closeSection = (keyRaw) => {
+            const key = (keyRaw || "").trim();
+            if (!key) return;
+            closedSections.add(key);
+            if (!sectionClosedAtStep.has(key)) sectionClosedAtStep.set(key, streamStep);
+          };
+          if (!item) {
+            window.clearInterval(streamTimer);
+            streamTimer = null;
+            btnPauseToggle.disabled = true;
+            btnPauseToggle.textContent = "Pause";
+            if (btnBack10) btnBack10.disabled = queueIndex <= 0;
+            streamEnded = true;
+            // Close any pending section first, then close the currently open section.
+            if (pendingCloseSectionKey) closeSection(pendingCloseSectionKey);
+            pendingCloseSectionKey = "";
+            if (currentSectionTitle) closeSection(`${(currentSuperTitle || "").trim()}||${currentSectionTitle}`);
+            // Close the currently open super so its title can reveal.
+            if ((currentSuperTitle || "").trim()) {
+              closedSupers.add((currentSuperTitle || "").trim());
+            }
+            enqueueEndcapForSuper((currentSuperTitle || "").trim());
+            // End-of-stream: finalize any remaining unlabeled thoughts.
+            for (const th of engine.thoughts) {
+              if (!th || th.labelStatus !== "pending") continue;
+              if (!th.utterances || th.utterances.length === 0) continue;
+              const planned = (th.plannedTitle || "").trim();
+              if (planned) scheduleLabelText(th.id, planned);
+              else scheduleLabel(th.id);
+            }
+            // No more sentences; for scripted mode, we can finalize the last thought label.
+            if (scriptedMode) {
+              const lastIdx = engine.thoughts.length - 1;
+              const last = engine.thoughts[lastIdx];
+              const planned = (last && last.plannedTitle ? last.plannedTitle : "").trim();
+              if (last && planned && last.labelStatus === "pending") {
+                window.setTimeout(() => scheduleLabelText(last.id, planned), 220);
+              }
+            }
+            pushStreamHistorySnapshot();
+            render();
+            return;
+          }
+
+          // advance pointer now (so snapshot reflects "after this item")
+          queueIndex += 1;
+          if (btnBack10) btnBack10.disabled = queueIndex <= 0;
+
+          if (item.type === "super") {
+            // Super change: we can close the current section immediately.
+            if (pendingCloseSectionKey) closeSection(pendingCloseSectionKey);
+            pendingCloseSectionKey = "";
+            if (currentSectionTitle) closeSection(`${(currentSuperTitle || "").trim()}||${currentSectionTitle}`);
+            if ((currentSuperTitle || "").trim()) {
+              closedSupers.add((currentSuperTitle || "").trim());
+            }
+            enqueueEndcapForSuper((currentSuperTitle || "").trim());
+            currentSuperTitle = (item.title || "").trim();
+            currentSectionTitle = "";
+            if (currentSuperTitle) {
+              for (const th of engine.thoughts) {
+                if (!th) continue;
+                if (!th.superTitle) th.superTitle = currentSuperTitle;
+              }
+            }
+            if (!superOrder.includes(currentSuperTitle)) superOrder.push(currentSuperTitle);
+            pushStreamHistorySnapshot();
+            render();
+            return;
+          }
+          if (item.type === "section") {
+            // DO NOT close the previous section yet.
+            // Close it when the first child in the NEW section appears (II.B.1 moment).
+            if (currentSectionTitle) {
+              pendingCloseSectionKey = `${(currentSuperTitle || "").trim()}||${currentSectionTitle}`;
+            }
+            currentSectionTitle = (item.title || "").trim();
+            const sup = currentSuperTitle || "";
+            if (!superOrder.includes(sup)) superOrder.push(sup);
+            if (!sectionOrderBySuper.has(sup)) sectionOrderBySuper.set(sup, []);
+            const arr = sectionOrderBySuper.get(sup);
+            if (!arr.includes(currentSectionTitle)) arr.push(currentSectionTitle);
+            sectionTitleByKey.set(`${sup}||${currentSectionTitle}`, currentSectionTitle);
+            // When II.B is created, reveal Roman numeral II's title immediately.
+            // ("Roman numeral two topic a title at the same moment that 2B is created.")
+            const nonEmptySupers = superOrder.map((s) => (s || "").trim()).filter(Boolean);
+            const romanIdx = nonEmptySupers.indexOf((sup || "").trim()) + 1;
+            const secIdx = arr.indexOf(currentSectionTitle) + 1; // 1=A, 2=B, ...
+            if (romanIdx === 2 && secIdx === 2) {
+              forceRevealSupers.add((sup || "").trim());
+              const D = clampInt(config.parentTitleRevealAfterSteps, 0, 40);
+              if (!superEstablishedAtStep.has((sup || "").trim())) superEstablishedAtStep.set((sup || "").trim(), Math.max(0, streamStep - D));
+            }
+            pushStreamHistorySnapshot();
+            render();
+            return;
+          }
+
+          // First child of the new section: now we can close the previous one.
+          if (pendingCloseSectionKey) {
+            closeSection(pendingCloseSectionKey);
+            pendingCloseSectionKey = "";
+          }
+          ingest(item.text, {
+            forceBoundary: item.forceBoundary,
+            plannedTitle: item.plannedTitle || "",
+            sectionTitle: item.sectionTitle || currentSectionTitle || "",
+            superTitle: item.superTitle || currentSuperTitle || "",
+          });
+          pushStreamHistorySnapshot();
+        }, config.speedMs);
+      }
+
+      function startStreamingQueue(queue) {
+        if (!queue.length) return;
+        streamingQueue = queue.slice();
+        fullQueue = queue.slice();
+        queueIndex = 0;
+        streamHistory = [];
+        paused = false;
+        streamEnded = false;
+        scriptedMode = fullQueue.some((x) => x && x.scripted);
+        btnPauseToggle.disabled = false;
+        btnPauseToggle.textContent = "Pause";
+        if (btnBack10) btnBack10.disabled = true;
+        pushStreamHistorySnapshot(); // starting point
+        startStreamTimerFromCurrentIndex();
+      }
+
+      // --- Controls wiring ---
+      function refreshConfigFromInputs() {
+        config.retroShiftCount = clampInt(retroShiftInput.value, 0, 10);
+        config.pauseBoundaryMs = clampInt(pauseMsInput.value, 300, 10000);
+        config.labelDelayMs = clampInt(labelDelayInput.value, 0, 10000);
+        config.speedMs = clampInt(speedInput.value, 150, 5000);
+        if (splitModeInput) config.splitMode = splitModeInput.value || "line";
+        if (viewModeInput) config.viewMode = viewModeInput.value || "sentences";
+      }
+
+      [retroShiftInput, pauseMsInput, labelDelayInput, speedInput, splitModeInput, viewModeInput]
+        .filter(Boolean)
+        .forEach((el) => {
+        el.addEventListener("change", () => {
+          refreshConfigFromInputs();
+          render();
+        });
+      });
+
+      btnStream.addEventListener("click", () => {
+        reprocessAndStream();
+      });
+
+      if (btnBack10) {
+        btnBack10.addEventListener("click", () => {
+          if (!streamHistory.length) return;
+          // IMPORTANT: use the stream's last snapshot time (not wall-clock now)
+          // so Back 10s still works even if paused or after the stream ends.
+          const curTime = (streamHistory[streamHistory.length - 1] && streamHistory[streamHistory.length - 1].timeMs) || Date.now();
+          const target = curTime - 10_000;
+          // Find the latest snapshot at or before target time.
+          let chosen = streamHistory[0];
+          for (let i = 0; i < streamHistory.length; i++) {
+            const s = streamHistory[i];
+            if (s.timeMs <= target) chosen = s;
+            else break;
+          }
+          // Stop the stream timer while we jump.
+          if (streamTimer) {
+            window.clearInterval(streamTimer);
+            streamTimer = null;
+          }
+          restoreStreamHistorySnapshot(chosen);
+          // Resume timers.
+          btnPauseToggle.disabled = false;
+          btnPauseToggle.textContent = paused ? "Resume" : "Pause";
+          btnBack10.disabled = queueIndex <= 0;
+          startLabelTimer();
+          startStreamTimerFromCurrentIndex();
+          render();
+        });
+      }
+
+      btnPauseToggle.addEventListener("click", () => {
+        if (btnPauseToggle.disabled) return;
+        paused = !paused;
+        btnPauseToggle.textContent = paused ? "Resume" : "Pause";
+      });
+
+      btnReset.addEventListener("click", () => resetAll());
+
+      function reprocessAndStream() {
+        // Rebuild from whatever is currently in the textarea.
+        refreshConfigFromInputs();
+        const queue = buildStreamingQueueFromPaste(pasteBox.value);
+        if (!queue.length) {
+          alert("Paste some text first (or use the mic).");
+          return;
+        }
+        // Capture any script plan for placeholder rendering.
+        scriptPlan = queue && queue._scriptPlan ? queue._scriptPlan : null;
+        if (scriptPlan && scriptPlan.sectionsBySuper) {
+          scriptPlan.sectionsBySuper = new Map(scriptPlan.sectionsBySuper);
+        }
+        resetAll();
+        // restore plan after resetAll clears state
+        if (queue && queue._scriptPlan) {
+          scriptPlan = queue._scriptPlan;
+          if (scriptPlan && scriptPlan.sectionsBySuper) scriptPlan.sectionsBySuper = new Map(scriptPlan.sectionsBySuper);
+        }
+        // resetAll() clears state but keeps pasteBox contents
+        refreshConfigFromInputs();
+        startStreamingQueue(queue);
+      }
+
+      // If you paste a new transcript, immediately reprocess + animate it.
+      pasteBox.addEventListener("paste", () => {
+        window.setTimeout(() => reprocessAndStream(), 0);
+      });
+
+      // Stage mode: force a built-in scripted transcript automatically
+      // so the outline appears without any UI controls.
+      //
+      // Note: browsers may restore textarea contents on refresh; we intentionally override
+      // that here so the stage always presents the same transcript by default.
+      pasteBox.value = `@@super: Inaugural opening + frame
+@@section: Gratitude + oath
+@@thought: Humility and thanks
+My fellow citizens:
+
+I stand here today humbled by the task before us, grateful for the trust you have bestowed, mindful of the sacrifices borne by our ancestors. I thank President Bush for his service to our nation, as well as the generosity and cooperation he has shown throughout this transition.
+
+@@thought: Oath in fair weather and storms
+Forty-four Americans have now taken the presidential oath. The words have been spoken during rising tides of prosperity and the still waters of peace. Yet, every so often the oath is taken amidst gathering clouds and raging storms. At these moments, America has carried on not simply because of the skill or vision of those in high office, but because We the People have remained faithful to the ideals of our forbearers, and true to our founding documents.
+
+@@thought: This generation’s charge
+So it has been. So it must be with this generation of Americans.
+
+@@super: Crisis diagnosis + resolve
+@@section: Crisis conditions
+@@thought: War, economy, and social strains
+That we are in the midst of crisis is now well understood. Our nation is at war, against a far-reaching network of violence and hatred. Our economy is badly weakened, a consequence of greed and irresponsibility on the part of some, but also our collective failure to make hard choices and prepare the nation for a new age. Homes have been lost; jobs shed; businesses shuttered. Our health care is too costly; our schools fail too many; and each day brings further evidence that the ways we use energy strengthen our adversaries and threaten our planet.
+
+@@thought: Confidence crisis
+These are the indicators of crisis, subject to data and statistics. Less measurable but no less profound is a sapping of confidence across our land - a nagging fear that America's decline is inevitable, and that the next generation must lower its sights.
+
+@@section: Resolve + political reset
+@@thought: Challenges will be met
+Today I say to you that the challenges we face are real. They are serious and they are many. They will not be met easily or in a short span of time. But know this, America - they will be met.
+
+@@thought: Hope over fear; unity over discord
+On this day, we gather because we have chosen hope over fear, unity of purpose over conflict and discord.
+
+@@thought: End petty grievances and worn-out dogmas
+On this day, we come to proclaim an end to the petty grievances and false promises, the recriminations and worn out dogmas, that for far too long have strangled our politics.
+
+@@super: National purpose + earned greatness
+@@section: Renewal of spirit and ideals
+@@thought: Set aside childish things
+We remain a young nation, but in the words of Scripture, the time has come to set aside childish things. The time has come to reaffirm our enduring spirit; to choose our better history; to carry forward that precious gift, that noble idea, passed on from generation to generation: the God-given promise that all are equal, all are free, and all deserve a chance to pursue their full measure of happiness.
+
+@@section: The makers and the path
+@@thought: Greatness must be earned
+In reaffirming the greatness of our nation, we understand that greatness is never a given. It must be earned. Our journey has never been one of short-cuts or settling for less. It has not been the path for the faint-hearted - for those who prefer leisure over work, or seek only the pleasures of riches and fame. Rather, it has been the risk-takers, the doers, the makers of things - some celebrated but more often men and women obscure in their labor, who have carried us up the long, rugged path towards prosperity and freedom.
+
+@@thought: Immigrants and builders
+For us, they packed up their few worldly possessions and traveled across oceans in search of a new life.
+
+@@thought: Labor, conquest, and bondage
+For us, they toiled in sweatshops and settled the West; endured the lash of the whip and plowed the hard earth.
+
+@@thought: Sacrifice in war
+For us, they fought and died, in places like Concord and Gettysburg; Normandy and Khe Sahn.
+
+@@thought: America larger than individual ambition
+Time and again these men and women struggled and sacrificed and worked till their hands were raw so that we might live a better life. They saw America as bigger than the sum of our individual ambitions; greater than all the differences of birth or wealth or faction.
+
+@@super: Rebuilding at home
+@@section: Restart the work of remaking America
+@@thought: Capacity intact; time of standing pat is over
+This is the journey we continue today. We remain the most prosperous, powerful nation on Earth. Our workers are no less productive than when this crisis began. Our minds are no less inventive, our goods and services no less needed than they were last week or last month or last year. Our capacity remains undiminished. But our time of standing pat, of protecting narrow interests and putting off unpleasant decisions - that time has surely passed. Starting today, we must pick ourselves up, dust ourselves off, and begin again the work of remaking America.
+
+@@section: Bold, swift action agenda
+@@thought: Build foundations: infrastructure, science, energy, education
+For everywhere we look, there is work to be done. The state of the economy calls for action, bold and swift, and we will act - not only to create new jobs, but to lay a new foundation for growth. We will build the roads and bridges, the electric grids and digital lines that feed our commerce and bind us together. We will restore science to its rightful place, and wield technology's wonders to raise health care's quality and lower its cost. We will harness the sun and the winds and the soil to fuel our cars and run our factories. And we will transform our schools and colleges and universities to meet the demands of a new age. All this we can do. And all this we will do.
+
+@@section: Answering skepticism
+@@thought: Big plans are part of our history
+Now, there are some who question the scale of our ambitions - who suggest that our system cannot tolerate too many big plans. Their memories are short. For they have forgotten what this country has already done; what free men and women can achieve when imagination is joined to common purpose, and necessity to courage.
+
+@@super: Government, markets, and accountability
+@@section: What matters is whether it works
+@@thought: Pragmatic test; end what fails
+What the cynics fail to understand is that the ground has shifted beneath them - that the stale political arguments that have consumed us for so long no longer apply. The question we ask today is not whether our government is too big or too small, but whether it works - whether it helps families find jobs at a decent wage, care they can afford, a retirement that is dignified. Where the answer is yes, we intend to move forward. Where the answer is no, programs will end.
+
+@@thought: Stewardship and transparency
+And those of us who manage the public's dollars will be held to account - to spend wisely, reform bad habits, and do our business in the light of day - because only then can we restore the vital trust between a people and their government.
+
+@@section: Markets + shared prosperity
+@@thought: Markets need a watchful eye; prosperity must reach
+Nor is the question before us whether the market is a force for good or ill. Its power to generate wealth and expand freedom is unmatched, but this crisis has reminded us that without a watchful eye, the market can spin out of control - and that a nation cannot prosper long when it favors only the prosperous. The success of our economy has always depended not just on the size of our Gross Domestic Product, but on the reach of our prosperity; on the ability to extend opportunity to every willing heart - not out of charity, but because it is the surest route to our common good.
+
+@@super: Security, alliances, and global leadership
+@@section: Safety and ideals together
+@@thought: Reject false choice; America ready to lead
+As for our common defense, we reject as false the choice between our safety and our ideals. Our Founding Fathers, faced with perils we can scarcely imagine, drafted a charter to assure the rule of law and the rights of man, a charter expanded by the blood of generations. Those ideals still light the world, and we will not give them up for expedience's sake. And so to all other peoples and governments who are watching today, from the grandest capitals to the small village where my father was born: know that America is a friend of each nation and every man, woman, and child who seeks a future of peace and dignity, and we are ready to lead once more.
+
+@@section: Power with prudence and humility
+@@thought: Alliances, example, restraint
+Recall that earlier generations faced down fascism and communism not just with missiles and tanks, but with the sturdy alliances and enduring convictions. They understood that our power alone cannot protect us, nor does it entitle us to do as we please. Instead, they knew that our power grows through its prudent use; our security emanates from the justness of our cause, the force of our example, the tempering qualities of humility and restraint.
+
+@@section: New threats and commitments
+@@thought: Iraq, Afghanistan, nuclear, climate, resolve against terror
+We are the keepers of this legacy. Guided by these principles once more, we can meet those new threats that demand even greater effort - even greater cooperation and understanding between nations. We will begin to responsibly leave Iraq to its people, and forge a hard-earned peace in Afghanistan. With old friends and former foes, we’ll work tirelessly to lessen the nuclear threat, and roll back the specter of a warming planet. We will not apologize for our way of life, nor will we waver in its defense, and for those who seek to advance their aims by inducing terror and slaughtering innocents, we say to you now that our spirit is stronger and cannot be broken; you cannot outlast us, and we will defeat you.
+
+@@super: Pluralism and a new era of peace
+@@section: Patchwork heritage as strength
+@@thought: Shared humanity beyond old hatreds
+For we know that our patchwork heritage is a strength, not a weakness. We are a nation of Christians and Muslims, Jews and Hindus - and non-believers. We are shaped by every language and culture, drawn from every end of this Earth; and because we have tasted the bitter swill of civil war and segregation, and emerged from that dark chapter stronger and more united, we cannot help but believe that the old hatreds shall someday pass; that the lines of tribe shall soon dissolve; that as the world grows smaller, our common humanity shall reveal itself; and that America must play its role in ushering in a new era of peace.
+
+@@section: Diplomacy posture
+@@thought: Muslim world; leaders judged by building; extend a hand
+To the Muslim world, we seek a new way forward, based on mutual interest and mutual respect. To those leaders around the globe who seek to sow conflict, or blame their society's ills on the West - know that your people will judge you on what you can build, not what you destroy. To those who cling to power through corruption and deceit and the silencing of dissent, know that you are on the wrong side of history; but that we will extend a hand if you are willing to unclench your fist.
+
+@@section: Development and shared responsibility
+@@thought: Help poor nations; reject indifference and waste
+To the people of poor nations, we pledge to work alongside you to make your farms flourish and let clean waters flow; to nourish starved bodies and feed hungry minds. And to those nations like ours that enjoy relative plenty, we say we can no longer afford indifference to the suffering outside our borders; nor can we consume the world's resources without regard to effect. For the world has changed, and we must change with it.
+
+@@super: Service, character, and responsibility
+@@section: Honor the service of Americans
+@@thought: Meaning in something greater than self
+As we consider the road that unfolds before us, we remember with humble gratitude those brave Americans who, at this very hour, patrol far-off deserts and distant mountains. They have something to tell us, just as the fallen heroes who lie in Arlington whisper through the ages. We honor them not only because they are guardians of our liberty, but because they embody the spirit of service; a willingness to find meaning in something greater than themselves. And yet, at this moment - a moment that will define a generation - it is precisely this spirit that must inhabit us all.
+
+@@section: People’s faith and everyday virtue
+@@thought: Kindness, sacrifice, courage at home
+For as much as government can do and must do, it is ultimately the faith and determination of the American people upon which this nation relies. It is the kindness to take in a stranger when the levees break, the selflessness of workers who would rather cut their hours than see a friend lose their job which sees us through our darkest hours. It is the firefighter's courage to storm a stairway filled with smoke, but also a parent's willingness to nurture a child, that finally decides our fate.
+
+@@section: Old values for new challenges
+@@thought: Return to truths; a new era of responsibility
+Our challenges may be new. The instruments with which we meet them may be new. But those values upon which our success depends - honesty and hard work, courage and fair play, tolerance and curiosity, loyalty and patriotism - these things are old. These things are true. They have been the quiet force of progress throughout our history. What is demanded then is a return to these truths. What is required of us now is a new era of responsibility - a recognition, on the part of every American, that we have duties to ourselves, our nation, and the world, duties that we do not grudgingly accept but rather seize gladly, firm in the knowledge that there is nothing so satisfying to the spirit, so defining of our character, than giving our all to a difficult task.
+
+@@thought: The price and promise of citizenship
+This is the price and the promise of citizenship.
+
+@@thought: Confidence as a calling
+This is the source of our confidence - the knowledge that God calls on us to shape an uncertain destiny.
+
+@@thought: Meaning of liberty; living proof
+This is the meaning of our liberty and our creed - why men and women and children of every race and every faith can join in celebration across this magnificent mall, and why a man whose father less than sixty years ago might not have been served at a local restaurant can now stand before you to take a most sacred oath.
+
+@@super: Closing remembrance + charge
+@@section: Winter story and endurance
+@@thought: Patriots at the icy river
+So let us mark this day with remembrance, of who we are and how far we have traveled. In the year of America's birth, in the coldest of months, a small band of patriots huddled by dying campfires on the shores of an icy river. The capital was abandoned. The enemy was advancing. The snow was stained with blood.
+
+@@thought: Washington’s words
+At a moment when the outcome of our revolution was most in doubt, the father of our nation ordered these words be read to the people:
+"Let it be told to the future world...that in the depth of winter, when nothing but hope and virtue could survive...that the city and the country, alarmed at one common danger, came forth to meet [it]."
+
+@@thought: Carry the gift of freedom forward
+America. In the face of our common dangers, in this winter of our hardship, let us remember these timeless words. With hope and virtue, let us brave once more the icy currents, and endure what storms may come. Let it be said by our children's children that when we were tested we refused to let this journey end, that we did not turn back nor did we falter; and with eyes fixed on the horizon and God's grace upon us, we carried forth that great gift of freedom and delivered it safely to future generations.
+
+@@thought: Benediction
+Thank you. God bless you and God bless the United States of America.
+`;
+      window.setTimeout(() => reprocessAndStream(), 0);
+
+      // --- Optional live speech recognition ---
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      let recognizer = null;
+      let micRunning = false;
+      let lastFinalAt = 0;
+
+      function canUseMic() {
+        return !!SpeechRecognition;
+      }
+
+      function startMic() {
+        if (!canUseMic()) return;
+        if (micRunning) return;
+        refreshConfigFromInputs();
+
+        recognizer = new SpeechRecognition();
+        recognizer.lang = micLang.value || "en-US";
+        recognizer.continuous = true;
+        recognizer.interimResults = true;
+
+        recognizer.onstart = () => {
+          micRunning = true;
+          btnMicStart.disabled = true;
+          btnMicStop.disabled = false;
+          setMicStatus(true, "mic listening…");
+        };
+
+        recognizer.onerror = (e) => {
+          setMicStatus(false, `mic error: ${e.error || "unknown"}`);
+        };
+
+        recognizer.onend = () => {
+          // Some browsers end automatically; if user didn't stop intentionally, they can restart.
+          micRunning = false;
+          btnMicStart.disabled = false;
+          btnMicStop.disabled = true;
+          setMicStatus(false, "mic idle");
+        };
+
+        recognizer.onresult = (event) => {
+          // We only ingest FINAL segments as utterances (keeps outline stable).
+          // Interim text is ignored here, but you could display it if desired.
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const res = event.results[i];
+            const text = (res[0]?.transcript || "").trim();
+            if (!text) continue;
+            if (res.isFinal) {
+              const now = Date.now();
+              const boundaryByPause = lastFinalAt && now - lastFinalAt >= config.pauseBoundaryMs;
+              lastFinalAt = now;
+              ingest(text, { forceBoundary: boundaryByPause });
+            }
+          }
+        };
+
+        recognizer.start();
+      }
+
+      function stopMic() {
+        if (!recognizer) return;
+        try {
+          recognizer.stop();
+        } catch {
+          // ignore
+        }
+      }
+
+      btnMicStart.addEventListener("click", () => startMic());
+      btnMicStop.addEventListener("click", () => stopMic());
+
+      // --- Init ---
+      (function init() {
+        refreshConfigFromInputs();
+        if (!canUseMic()) {
+          supportNote.style.display = "inline-flex";
+          btnMicStart.disabled = true;
+        }
+        setMicStatus(false, "mic idle");
+        // Default to tagged "scripted" mode so the outline can introduce higher-level groups
+        // and delay naming them until they close.
+        if (viewModeInput) viewModeInput.value = "thoughts";
+        if (splitModeInput) splitModeInput.value = "line";
+        config.viewMode = "thoughts";
+        config.splitMode = "line";
+        // Stage-mode demo + auto-start are handled earlier.
+        render();
+      })();
+    </script>
+  </body>
+</html>
+
