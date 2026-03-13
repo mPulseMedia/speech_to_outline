@@ -341,20 +341,19 @@ main {
   font-weight: 600;
 }
 
-.comeback-msg {
-  text-align: center;
-  color: var(--muted);
+.play-again-btn {
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 14px 32px;
   font-size: 16px;
-  padding: 40px 20px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.1s;
 }
 
-.comeback-msg .clock {
-  font-size: 32px;
-  font-weight: 700;
-  color: var(--accent);
-  margin-top: 10px;
-  font-variant-numeric: tabular-nums;
-}
+.play-again-btn:active { transform: scale(0.96); }
 
 @keyframes shake {
   0%, 100% { transform: translateX(0); }

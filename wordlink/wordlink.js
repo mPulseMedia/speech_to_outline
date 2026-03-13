@@ -236,26 +236,27 @@ function getTodayKey() {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
-function getDayIndex() {
-  const start = new Date('2026-01-01');
-  const now = new Date();
-  now.setHours(0,0,0,0);
-  return Math.abs(Math.floor((now - start) / 86400000));
-}
-
-function seededRand(seed) {
-  let s = seed;
-  return function() {
-    s = (s * 16807 + 0) % 2147483647;
-    return s / 2147483647;
-  };
-}
-
 function getTodayPuzzles() {
-  const dayIdx = getDayIndex();
-  const rng = seededRand(dayIdx * 9973);
-  const shuffled = [...allPuzzles].sort(() => rng() - 0.5);
-  return [shuffled[0], shuffled[1], shuffled[2]];
+  // Check if we already picked puzzles for today
+  const saved = loadTodayState();
+  if (saved && saved.puzzleIndices) {
+    return saved.puzzleIndices.map(i => allPuzzles[i]);
+  }
+  // Pick 3 random non-repeating puzzles
+  const indices = [];
+  while (indices.length < 3) {
+    const idx = Math.floor(Math.random() * allPuzzles.length);
+    if (!indices.includes(idx)) indices.push(idx);
+  }
+  // Save the indices so refreshing keeps the same puzzles
+  localStorage.setItem('wl_today', JSON.stringify({
+    date: getTodayKey(),
+    puzzleIdx: 0,
+    results: [],
+    done: false,
+    puzzleIndices: indices
+  }));
+  return indices.map(i => allPuzzles[i]);
 }
 
 // ──────────────────────────────────────
@@ -279,11 +280,13 @@ function loadTodayState() {
 }
 
 function saveTodayState() {
+  const existing = loadTodayState();
   localStorage.setItem('wl_today', JSON.stringify({
     date: getTodayKey(),
     puzzleIdx: currentPuzzleIdx,
     results: puzzleResults,
-    done: currentPuzzleIdx >= 3
+    done: currentPuzzleIdx >= 3,
+    puzzleIndices: existing ? existing.puzzleIndices : []
   }));
 }
 
@@ -491,24 +494,16 @@ function showResults() {
   }
 
   updateStatsBar();
-  startCountdown();
 }
 
-function startCountdown() {
-  function update() {
-    const now = new Date();
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(0, 0, 0, 0);
-    const diff = tomorrow - now;
-    const h = Math.floor(diff / 3600000);
-    const m = Math.floor((diff % 3600000) / 60000);
-    const s = Math.floor((diff % 60000) / 1000);
-    document.getElementById('countdown').textContent =
-      `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  }
-  update();
-  setInterval(update, 1000);
+function newGame() {
+  // Clear today's state and pick fresh random puzzles
+  localStorage.removeItem('wl_today');
+  currentPuzzleIdx = 0;
+  puzzleResults = [];
+  todayPuzzles = getTodayPuzzles();
+  updateDots();
+  showPuzzle();
 }
 
 // ──────────────────────────────────────
