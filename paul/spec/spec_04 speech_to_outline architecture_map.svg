@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1300" height="720" viewBox="0 0 1300 720">
+  <defs>
+    <style>
+      .bg { fill: #0b0f14; }
+      .box { fill: #121a24; stroke: #3a4a5e; stroke-width: 2; }
+      .title { fill: #e6edf3; font: 700 18px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto; }
+      .text { fill: #cbd5e1; font: 14px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto; }
+      .muted { fill: #94a3b8; font: 12px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto; }
+      .edge { stroke: #6b86a5; stroke-width: 2; fill: none; marker-end: url(#arrow); }
+      .edge2 { stroke: #4b647f; stroke-width: 2; fill: none; marker-end: url(#arrow); stroke-dasharray: 6 6; }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <path d="M0,0 L10,3 L0,6 Z" fill="#6b86a5" />
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1300" height="720"/>
+
+  <!-- UI -->
+  <rect class="box" x="40" y="40" width="360" height="270" rx="14"/>
+  <text class="title" x="60" y="75">UI / Controls</text>
+  <text class="text" x="60" y="110">Begin (btnStream)</text>
+  <text class="text" x="60" y="135">Rewind 10s (btnBack10)</text>
+  <text class="text" x="60" y="160">Pause (btnPauseToggle)</text>
+  <text class="text" x="60" y="185">Clear (btnReset)</text>
+  <text class="text" x="60" y="215">Paste box (pasteBox)</text>
+  <text class="muted" x="60" y="245">Settings + Mic (optional)</text>
+
+  <!-- Queue -->
+  <rect class="box" x="40" y="350" width="360" height="160" rx="14"/>
+  <text class="title" x="60" y="385">Queue / Streaming</text>
+  <text class="text" x="60" y="415">buildStreamingQueueFromPaste()</text>
+  <text class="text" x="60" y="440">fullQueue, queueIndex</text>
+  <text class="text" x="60" y="465">startStreamTimerFromCurrentIndex()</text>
+
+  <!-- Ingest -->
+  <rect class="box" x="460" y="40" width="360" height="210" rx="14"/>
+  <text class="title" x="480" y="75">Ingest</text>
+  <text class="text" x="480" y="110">ingest(text)</text>
+  <text class="text" x="480" y="135">makeUtterance()</text>
+  <text class="text" x="480" y="160">ingestUtterance()</text>
+  <text class="muted" x="480" y="190">boundary + grouping decisions</text>
+
+  <!-- Core state -->
+  <rect class="box" x="460" y="290" width="360" height="220" rx="14"/>
+  <text class="title" x="480" y="325">Core State</text>
+  <text class="text" x="480" y="355">config (DEFAULT_CONFIG + inputs)</text>
+  <text class="text" x="480" y="380">engine (thoughts)</text>
+  <text class="text" x="480" y="405">transcript (utterances)</text>
+  <text class="muted" x="480" y="435">+ hierarchy maps/sets</text>
+
+  <!-- Labeling -->
+  <rect class="box" x="860" y="40" width="400" height="140" rx="14"/>
+  <text class="title" x="880" y="75">Labeling</text>
+  <text class="text" x="880" y="105">scheduleLabel / scheduleLabelText</text>
+  <text class="text" x="880" y="130">runLabelJobs (timer)</text>
+
+  <!-- Collapse -->
+  <rect class="box" x="860" y="205" width="400" height="155" rx="14"/>
+  <text class="title" x="880" y="240">Collapse / Recency</text>
+  <text class="text" x="880" y="270">autoCollapseAfterSteps</text>
+  <text class="text" x="880" y="295">liveWindowMs (time-based)</text>
+  <text class="text" x="880" y="320">parent waves + endcap</text>
+
+  <!-- Render -->
+  <rect class="box" x="860" y="390" width="400" height="180" rx="14"/>
+  <text class="title" x="880" y="425">Render</text>
+  <text class="text" x="880" y="455">render() rebuilds outline DOM</text>
+  <text class="text" x="880" y="480">collapse/fade transitions</text>
+  <text class="text" x="880" y="505">conditional scroll pinning</text>
+
+  <!-- History -->
+  <rect class="box" x="460" y="545" width="800" height="140" rx="14"/>
+  <text class="title" x="480" y="580">History / Rewind</text>
+  <text class="text" x="480" y="610">pushStreamHistorySnapshot()</text>
+  <text class="text" x="480" y="635">restoreStreamHistorySnapshot()</text>
+  <text class="muted" x="480" y="660">deep clones engine + UI maps/sets; clears anim carry-over</text>
+
+  <!-- Edges -->
+  <path class="edge" d="M220 310 C220 330, 220 330, 220 350"/>
+  <text class="muted" x="65" y="335">Begin starts stream</text>
+
+  <path class="edge" d="M400 430 C430 430, 430 165, 460 165"/>
+  <text class="muted" x="330" y="420">tick � ingest</text>
+
+  <path class="edge" d="M640 250 C640 270, 640 270, 640 290"/>
+  <text class="muted" x="590" y="280">updates</text>
+
+  <path class="edge" d="M820 120 C840 120, 840 120, 860 120"/>
+  <text class="muted" x="780" y="110">schedules</text>
+
+  <path class="edge" d="M820 330 C840 330, 840 300, 860 300"/>
+  <text class="muted" x="770" y="320">drives</text>
+
+  <path class="edge" d="M820 420 C840 420, 840 480, 860 480"/>
+  <text class="muted" x="770" y="410">renders</text>
+
+  <path class="edge2" d="M220 185 C360 185, 360 610, 460 610"/>
+  <text class="muted" x="250" y="205">Rewind</text>
+</svg>
+

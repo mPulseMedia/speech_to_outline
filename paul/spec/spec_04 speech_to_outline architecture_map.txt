@@ -1,0 +1,94 @@
+SPEC 04 SPEECH → OUTLINE (ARCHITECTURE MAP)
+
+1.  Scope
+    A.  Architectural map for `speech-to-outline.html`.
+    B.  Focus: major modules, state stores, and runtime flows.
+
+2.  Top-level structure
+    A.  Single-file app: HTML + CSS + JS in one document.
+    B.  UI is declarative in HTML; behavior is imperative JS.
+    C.  Rendering is mostly a full rebuild of the outline DOM
+        on each `render()` call.
+
+3.  Major modules (conceptual)
+    A.  Controls + inputs
+        1.  Buttons: Begin / Rewind 10s / Pause / Clear.
+        2.  Paste box (`pasteBox`).
+        3.  Settings: view, split, timing inputs.
+        4.  Mic (optional): start/stop + language.
+    B.  Streaming + queue
+        1.  Build queue from pasted/scripted content.
+        2.  Tick through queue at `speedMs`.
+        3.  Track `queueIndex`, `streamStep`, `paused`.
+    C.  Ingest + segmentation
+        1.  `ingest()` creates an utterance and advances state.
+        2.  `ingestUtterance()` decides whether to create a
+            new thought boundary and assigns group metadata.
+    D.  Labeling
+        1.  Label jobs are scheduled after text is visible.
+        2.  Label timer runs periodically to apply labels.
+    E.  Collapse + recency
+        1.  Auto-collapse after label (step-based).
+        2.  Live window collapse (time-based).
+        3.  Parent collapse waves (sections/supers).
+        4.  Endcap jobs collapse older structure at stream end.
+    F.  Rendering + animation
+        1.  `render()` rebuilds DOM and applies collapse/fade
+            transitions using prior/next collapsed maps.
+        2.  Scroll pinning is conditional (only if near bottom).
+    G.  Time travel
+        1.  `pushStreamHistorySnapshot()` captures a deep copy
+            of engine + UI maps/sets.
+        2.  `restoreStreamHistorySnapshot()` restores state
+            and clears animation carry-over maps.
+
+4.  Key state stores
+    A.  Config
+        1.  `DEFAULT_CONFIG`
+        2.  `config` (live mutable config)
+        3.  `refreshConfigFromInputs()` syncs config from UI.
+    B.  Core model
+        1.  `engine` (thoughts + metadata)
+        2.  `transcript` (utterance list for sentence view)
+    C.  Hierarchy + UI maps/sets
+        1.  Group order: `superOrder`, `sectionOrderBySuper`.
+        2.  Collapse state: `superCollapsed`, `sectionCollapsed`.
+        3.  Manual toggles: `manualSuperToggles`,
+            `manualSectionToggles`.
+        4.  Auto-collapse scheduling:
+            `windowCollapseDueAtByThoughtId`,
+            `sectionClosedAtStep`.
+        5.  Animation memory:
+            `prevCollapsedByThoughtId`,
+            `prevFadedByThoughtId`,
+            `prevCollapsedByGroupKey`.
+
+5.  Main runtime flow (Begin)
+    A.  User clicks Begin (`btnStream`).
+    B.  `reprocessAndStream()`:
+        1.  Read inputs → `refreshConfigFromInputs()`.
+        2.  Build queue → `buildStreamingQueueFromPaste()`.
+        3.  `resetAll()` clears state.
+        4.  `startStreamingQueue(queue)`.
+    C.  `startStreamingQueue()`:
+        1.  Set `fullQueue`, `queueIndex`, `paused=false`.
+        2.  Push initial snapshot.
+        3.  Start timers:
+            a.  stream timer → `startStreamTimerFromCurrentIndex()`
+            b.  label timer → `startLabelTimer()`
+    D.  Each tick:
+        1.  Pull next item from `fullQueue`.
+        2.  Handle super/section markers (close parents, set
+            titles, enqueue endcap).
+        3.  Ingest text → `ingest(...)`.
+        4.  Snapshot + render.
+
+6.  Main runtime flow (Rewind 10s)
+    A.  User clicks Rewind (`btnBack10`).
+    B.  Pick snapshot at \(t-10s\) from `streamHistory`.
+    C.  Stop timer, restore snapshot, restart timers, render.
+
+7.  Main runtime flow (Pause / Clear)
+    A.  Pause toggles `paused`; stream timer checks it.
+    B.  Clear (`resetAll()`) resets state and UI.
+

@@ -1,0 +1,83 @@
+SPEC 02 SPEECH → OUTLINE (FEATURE INDEX)
+
+1.  Scope
+    A.  Features and functional groupings for
+        `speech-to-outline.html`.
+
+2.  Core UX flow
+    A.  Provide input (paste or mic).
+    B.  Stream input into an outline view.
+    C.  Auto-label and auto-collapse older content so newer
+        content can fill the stage.
+
+3.  Top actions (topbar)
+    A.  Begin (`btnStream`): start streaming from the paste
+        queue / scripted source.
+    B.  Rewind 10s (`btnBack10`): restore a prior stream
+        snapshot and re-render state.
+    C.  Pause (`btnPauseToggle`): pause/resume the streaming
+        timer.
+    D.  Clear (`btnReset`): clear state and reset the session.
+
+4.  Input panel
+    A.  Paste box (`pasteBox`): accepts text input.
+    B.  Blank lines: force a boundary (new thought).
+    C.  Split modes (`splitMode`):
+        1.  `line`: line-based units.
+        2.  `sentence`: sentence-based units.
+        3.  `auto`: long-paragraph heuristic split.
+
+5.  Settings (details)
+    A.  View mode (`viewMode`):
+        1.  `sentences`: show sentence list view.
+        2.  `thoughts`: show grouped thought view.
+    B.  Boundary timing:
+        1.  Pause ms (`pauseMs`): long pause can trigger a
+            boundary (`pauseBoundaryMs`).
+    C.  Label timing:
+        1.  Label delay ms (`labelDelayMs`): delay before
+            labeling a thought.
+    D.  Stream pace:
+        1.  Speed ms/line (`speedMs`): stream cadence.
+    E.  Retro shift (`retroShift`): configured but defaulted
+        to 0 in current build.
+
+6.  Mic (optional)
+    A.  Start/Stop (`btnMicStart` / `btnMicStop`).
+    B.  Language select (`micLang`).
+    C.  Notes: typically requires `http://localhost`.
+
+7.  Outline panel (display stage)
+    A.  Outline stage (`outlineScroll` / `outline`): main
+        render surface.
+    B.  Metadata (`outlineMeta`): thought counts (hidden in
+        current styling).
+    C.  Titles + bodies:
+        1.  Titles become clickable when collapsible.
+        2.  Bodies collapse to title-only by rules.
+
+8.  Segmentation (thought boundaries)
+    A.  Scripted markers (when used):
+        1.  `@@thought:` forces a boundary.
+    B.  Non-markup:
+        1.  Blank lines force boundaries.
+    C.  Live speech heuristics:
+        1.  Pause boundary (`pauseBoundaryMs`).
+        2.  Starter phrases (`boundaryStarters`).
+        3.  Size/cap + cohesion heuristic split.
+
+9.  Recency + collapse behavior
+    A.  Live window (`liveWindowMs`): older labeled thoughts
+        outside the window auto-collapse.
+    B.  Auto-collapse after label (`autoCollapseAfterSteps`):
+        a labeled thought stays expanded for N streamed steps,
+        then collapses to title-only.
+    C.  Parent collapse timing:
+        1.  `parentCollapseAfterSteps`
+        2.  `parentTitleRevealAfterSteps`
+
+10.  Time travel / history
+     A.  Stream snapshots capture engine + UI state.
+     B.  Rewind restores a snapshot and clears animation
+         carry-over state before re-rendering.
+

@@ -1,0 +1,8 @@
+Word Link App - Chat Log
+========================
+
+2026-03-12: Initial build of Word Link mobile web app.
+- Daily puzzle game with 3 puzzles per day
+- Two words given, player finds the linking word
+- Tracks correct/incorrect answers and solve time
+- Score formulated from accuracy and speed

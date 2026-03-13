@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Word Link</title>
+<link rel="stylesheet" href="wordlink.css">
+</head>
+<body>
+
+<header>
+  <img src="logo.png" alt="Word Link" class="logo">
+  <p>Find the word that links both clues</p>
+</header>
+
+<div class="stats-bar">
+  <div class="stat">
+    <div class="stat-value" id="streakVal">0</div>
+    <div class="stat-label">Streak</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value" id="playedVal">0</div>
+    <div class="stat-label">Played</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value" id="avgScoreVal">0</div>
+    <div class="stat-label">Avg Score</div>
+  </div>
+</div>
+
+<div class="progress-dots" id="dots">
+  <div class="dot" data-idx="0"></div>
+  <div class="dot" data-idx="1"></div>
+  <div class="dot" data-idx="2"></div>
+</div>
+
+<main>
+  <!-- Puzzle View -->
+  <div class="puzzle-card" id="puzzleCard">
+    <div class="puzzle-label" id="puzzleLabel">Puzzle 1 of 3</div>
+    <div class="timer" id="timer">0:00</div>
+    <div class="word-pair">
+      <span class="word" id="word1"></span>
+      <span class="ampersand">&amp;</span>
+      <span class="word" id="word2"></span>
+    </div>
+    <div class="input-row">
+      <input type="text" id="guessInput" placeholder="Your answer..." autocomplete="off" autocapitalize="none" spellcheck="false">
+      <button id="submitBtn" onclick="submitGuess()">Go</button>
+    </div>
+    <div class="feedback" id="feedback"></div>
+    <button class="next-btn" id="nextBtn" onclick="nextPuzzle()">Next Puzzle</button>
+  </div>
+
+  <!-- Results View -->
+  <div class="results" id="resultsView">
+    <div class="score-circle">
+      <div class="score-num" id="finalScore">0</div>
+      <div class="score-of">points</div>
+    </div>
+
+    <div class="results-breakdown">
+      <div class="result-row">
+        <span class="rr-label">Correct</span>
+        <span class="rr-value green" id="resCorrect">0/3</span>
+      </div>
+      <div class="result-row">
+        <span class="rr-label">Total Time</span>
+        <span class="rr-value" id="resTotalTime">0:00</span>
+      </div>
+      <div id="puzzleResults"></div>
+    </div>
+
+    <div class="comeback-msg" id="comebackMsg">
+      <div>Come back tomorrow for new puzzles!</div>
+      <div class="clock" id="countdown"></div>
+    </div>
+  </div>
+</main>
+
+<script src="wordlink.js"></script>
+</body>
+</html>

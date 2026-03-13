@@ -595,7 +595,7 @@
             </div>
             <div class="field">
               retro shift
-              <input id="retroShift" type="number" min="0" max="10" step="1" value="2" />
+              <input id="retroShift" type="number" min="0" max="10" step="1" value="0" />
             </div>
             <div class="field">
               pause ms
@@ -652,7 +652,7 @@
       // --- Outline engine (single-file, no deps) ---
 
       const DEFAULT_CONFIG = {
-        retroShiftCount: 2,
+        retroShiftCount: 0,
         pauseBoundaryMs: 1800,
         labelDelayMs: 2800,
         speedMs: 2000,
@@ -947,6 +947,20 @@
           const next = {
             id: makeId("thought"),
             createdAtMs: utterance.tMs,
+            // Boundary bookkeeping:
+            // - "Recognized" = when we decided to split (this moment).
+            // - "Effective" = where the split lands after retro-shifting.
+            boundaryRecognizedAtMs: utterance.tMs,
+            boundaryRecognizedAtStep: typeof streamStep === "number" ? streamStep : null,
+            // The utterance that triggered recognition (text-position marker).
+            boundaryRecognizedAtUtteranceId: utterance.id,
+            // The recognition moment must identify a specific boundary location.
+            boundaryRecognizedForUtteranceId: null,
+            // Boundary marker: the boundary is conceptually "after" a specific utterance
+            // in the previous thought (often earlier than the recognition moment).
+            boundaryAfterUtteranceId: null,
+            boundaryEffectiveShiftN: 0,
+            boundaryEffectiveAtUtteranceId: null,
             label: null,
             labelStatus: "pending",
             utterances: [],
@@ -965,7 +979,13 @@
             const moved = prev.utterances.slice(prev.utterances.length - shiftN);
             prev.utterances = prev.utterances.slice(0, prev.utterances.length - shiftN);
             next.utterances.push(...moved);
+            next.boundaryEffectiveShiftN = shiftN;
+            next.boundaryEffectiveAtUtteranceId = moved[0] ? moved[0].id : null;
           }
+          if (!next.boundaryEffectiveAtUtteranceId) next.boundaryEffectiveAtUtteranceId = utterance.id;
+          next.boundaryAfterUtteranceId = prev.utterances.length ? prev.utterances[prev.utterances.length - 1].id : null;
+          // Recognition points to the boundary marker location (earlier in the text).
+          next.boundaryRecognizedForUtteranceId = next.boundaryAfterUtteranceId;
 
           state.thoughts.push(next);
         }

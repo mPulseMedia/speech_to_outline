@@ -1,0 +1,16 @@
+PAUL RULE SYSTEM (Cursor)
+
+1.  Purpose
+    A.  Point Cursor at the repository’s rule system under
+        `paul/`.
+
+2.  Prompt handling
+    A.  Read and apply `paul/rule/prompt.txt` to each prompt.
+    B.  Update `paul/chat_log.txt` for each prompt.
+    C.  Maintain files in `paul/spec/` when prompts change
+        primary app features outside `paul/`.
+
+3.  Rule file formatting
+    A.  When editing any file in `paul/`, apply
+        `paul/rule/outline.txt`.
+

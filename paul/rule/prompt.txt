@@ -1,0 +1,112 @@
+PROMPT RULES
+
+1.  Scope
+    A.  These rules apply to how I respond to prompts.
+    B.  They do not replace any other spec/rule files.
+
+2.  Apply rule files to rule files
+    A.  When editing any file in `paul/rule/`, apply the
+        formatting + layout rules in `paul/rule/outline.txt`.
+    B.  Also apply any content rules in the relevant rule
+        file(s) to the file being edited.
+
+3.  Chat log
+    A.  For every prompt, append a new entry to
+        `paul/chat_log.txt`.
+    B.  Entry header format: `N.  LABEL – YYYY-MM-DD HH:MM:SS AM`.
+    C.  LABEL is a 1–3 word summary in ALL CAPS.
+    D.  Entry body format:
+        1.  A.  Prompt
+            a.  Quote the prompt verbatim.
+        2.  B.  Response
+            a.  1–3 concise bullets of what changed/done.
+    E.  For very small changes, keep Response to 1 bullet.
+    F.  The entry must follow the outline format rules in
+        `paul/rule/outline.txt` (markers, alignment, wrap).
+    G.  Prompt classification: determine whether the prompt
+        is about manipulating/creating the queued `##  NEXT
+        PROMPT` entry or about doing other work. Either way,
+        update `paul/chat_log.txt` (and apply the queue rules
+        in section 4 when relevant).
+
+4.  Processed vs queued prompts
+    A.  `paul/chat_log.txt` contains one separator line:
+        `------------------`
+    B.  Entries above the separator are PROCESSED prompts.
+    C.  The separator must appear immediately after the most
+        recent processed entry.
+    D.  Entries below the separator are QUEUED prompts.
+    E.  QUEUED prompt entries:
+        1.  Header: `##  LABEL` (ALL CAPS; no number, no
+            date/time).
+        2.  Body: one prompt or options.
+            a.  Use either:
+                1.  One prompt:
+                    a.  `A.  Prompt`
+                        1.  <prompt text>
+                2.  Three options (preferred):
+                    a.  `A.  <SHORT NAME>`
+                        1.  <prompt text paragraph 1>
+                        2.  <prompt text paragraph 2>
+                    b.  `B.  <SHORT NAME>`
+                        1.  <prompt text>
+                    c.  `C.  <SHORT NAME>`
+                        1.  <prompt text paragraph 2>
+                        2.  <prompt text  paragraph 1>
+        3.  No Response section until processed.
+    F.  When a queued prompt is executed:
+        1.  Move it above the separator.
+        2.  Add date/time and a Response section.
+        3.  Keep exactly one queued prompt ahead (one entry
+            below the separator).
+        4.  If the user says "execute the next prompt", then
+            in the processed entry’s A.  Prompt section:
+            a.  Item 1 is the selected option’s prompt text
+                (or the single queued prompt text).
+            b.  Add item 2: "Executed next prompt."
+    G.  If a prompt changes the queued prompt (but does not
+        execute it), update the queued `##  NEXT PROMPT`
+        entry in place. Do not add a second queued prompt.
+    H.  Always re-examine `##  NEXT PROMPT` after every
+        processed prompt and update it if warranted. It may
+        remain exactly the same.
+        1.  If recent prompts show the user is carefully
+            curating the queued prompt, be conservative:
+            prefer minimal edits (grammar/clarity) over
+            changing intent.
+        2.  Still correct obvious grammar or formatting
+            problems when you see them.
+    I.  If a prompt is focused on modifying `##  NEXT PROMPT`,
+        do not execute the queued prompt. Only update the
+        queued `##  NEXT PROMPT` entry in place.
+    J.  If `##  NEXT PROMPT` contains A/B/C options:
+        1.  User selects by writing something like:
+            a.  "Execute next prompt: A"
+            b.  "Execute next prompt: B"
+            c.  "Execute next prompt: C"
+        2.  Abbreviations are allowed (case-insensitive):
+            a.  "Do next a"
+            b.  "Do next b"
+            c.  "Do next c"
+
+5.  Resetting the chat log
+    A.  If a prompt asks to delete/reset the chat log, replace
+        `paul/chat_log.txt` with a fresh log starting at entry
+        `1.`.
+    B.  Preserve the separator + exactly one queued `##  NEXT
+        PROMPT` entry below it.
+
+6.  Spec maintenance (primary app features)
+    A.  If a prompt creates or modifies a feature in the
+        primary application (outside `paul/`), update the
+        relevant spec file(s) in `paul/spec/` accordingly.
+    B.  Use the outline format rules in `paul/rule/outline.txt`.
+    C.  Add or modify the spec in the appropriate location,
+        with careful, intelligent organization (do not just
+        append at the end).
+    D.  Minimal as necessary: keep spec edits as small as
+        possible while still correct and complete (avoid
+        unrelated reflows/rewording).
+    E.  Re-examine the spec on every processed prompt. Only
+        change it when the prompt actually touched a primary
+        app feature.
