@@ -13,6 +13,10 @@
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   font-family           : -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   background            : var(--bg);
@@ -22,6 +26,136 @@ body {
   flex-direction        : column;
   align-items           : center;
   -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+/* ───── INTRO SCREEN ───────────────── */
+
+.intro_screen {
+  width          : 100%;
+  min-height     : 100dvh;
+  display        : flex;
+  flex-direction : column;
+  align-items    : center;
+  justify-content: center;
+  padding        : 20px;
+  overflow-y     : auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.intro_screen .header_logo {
+  max-width    : 200px;
+  height       : auto;
+  margin-bottom: 24px;
+}
+
+.intro_card {
+  width        : 100%;
+  max-width    : 420px;
+  background   : var(--card);
+  border-radius: 20px;
+  padding      : 28px 24px;
+  border       : 1px solid var(--border);
+  box-shadow   : 0 2px 12px rgba(0,0,0,0.06);
+}
+
+.intro_title {
+  text-align   : center;
+  font-size    : 20px;
+  font-weight  : 700;
+  margin-bottom: 20px;
+}
+
+.intro_rules {
+  display       : flex;
+  flex-direction: column;
+  gap           : 14px;
+  margin-bottom : 24px;
+}
+
+.intro_rule {
+  display    : flex;
+  gap        : 12px;
+  align-items: flex-start;
+}
+
+.intro_rule_number {
+  width          : 26px;
+  height         : 26px;
+  border-radius  : 50%;
+  background     : var(--accent);
+  color          : white;
+  display        : flex;
+  align-items    : center;
+  justify-content: center;
+  font-size      : 13px;
+  font-weight    : 700;
+  flex-shrink    : 0;
+  margin-top     : 1px;
+}
+
+.intro_rule p {
+  font-size  : 14px;
+  line-height: 1.5;
+  color      : var(--text);
+}
+
+.intro_example {
+  background   : rgba(59,110,63,0.06);
+  border       : 1px solid rgba(59,110,63,0.15);
+  border-radius: 12px;
+  padding      : 16px;
+  text-align   : center;
+  margin-bottom: 24px;
+}
+
+.intro_example_label {
+  font-size     : 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color         : var(--muted);
+  margin-bottom : 10px;
+}
+
+.intro_example .clue_pair {
+  margin-bottom: 8px;
+}
+
+.intro_example .clue_word.small {
+  font-size: 16px;
+  padding  : 8px 14px;
+}
+
+.intro_example_answer {
+  font-size: 14px;
+  color    : var(--accent);
+}
+
+.intro_play_button {
+  display      : block;
+  width        : 100%;
+  background   : var(--accent);
+  color        : white;
+  border       : none;
+  border-radius: 14px;
+  padding      : 16px;
+  font-size    : 18px;
+  font-weight  : 700;
+  cursor       : pointer;
+  transition   : transform 0.1s;
+}
+
+.intro_play_button:active { transform: scale(0.97); }
+
+/* ───── GAME SCREEN ────────────────── */
+
+.game_screen {
+  width         : 100%;
+  min-height    : 100dvh;
+  display       : flex;
+  flex-direction: column;
+  align-items   : center;
 }
 
 header {
@@ -51,9 +185,7 @@ header p {
   padding        : 16px 20px;
 }
 
-.stats_item {
-  text-align: center;
-}
+.stats_item { text-align: center; }
 
 .stats_item_value {
   font-size  : 22px;
@@ -67,45 +199,36 @@ header p {
   letter-spacing: 0.5px;
 }
 
-.progress_dots {
-  display        : flex;
-  gap            : 10px;
-  justify-content: center;
-  padding        : 8px 0 16px;
-}
-
-.progress_dot {
-  width        : 12px;
-  height       : 12px;
-  border-radius: 50%;
-  background   : var(--border);
-  transition   : all 0.3s;
-}
-
-.progress_dot.active    { background: var(--accent); box-shadow: 0 0 8px var(--accent-glow); }
-.progress_dot.correct   { background: var(--green); }
-.progress_dot.incorrect { background: var(--red); }
+/* ───── PUZZLES GRID ───────────────── */
 
 main {
   width         : 100%;
-  max-width     : 480px;
-  padding       : 0 20px 40px;
+  max-width     : 520px;
+  padding       : 0 16px 40px;
   flex          : 1;
   display       : flex;
   flex-direction: column;
   align-items   : center;
 }
 
+.puzzles_grid {
+  width         : 100%;
+  display       : flex;
+  flex-direction: column;
+  gap           : 16px;
+}
+
 .puzzle_card {
   width        : 100%;
   background   : var(--card);
-  border-radius: 20px;
-  padding      : 32px 24px;
+  border-radius: 16px;
+  padding      : 20px 18px;
   text-align   : center;
   border       : 1px solid var(--border);
   position     : relative;
   overflow     : hidden;
   box-shadow   : 0 2px 8px rgba(0,0,0,0.06);
+  transition   : border-color 0.3s, box-shadow 0.3s;
 }
 
 .puzzle_card::before {
@@ -116,19 +239,57 @@ main {
   background: linear-gradient(90deg, var(--accent), #5a9e5f);
 }
 
-.puzzle_label {
-  font-size     : 12px;
-  color         : var(--muted);
+.puzzle_card.solved {
+  border-color: var(--green);
+  box-shadow  : 0 0 12px rgba(34,197,94,0.15);
+}
+
+.puzzle_card.solved::before {
+  background: var(--green);
+}
+
+.puzzle_card.revealed {
+  border-color: var(--red);
+  opacity     : 0.7;
+}
+
+.puzzle_card.revealed::before {
+  background: var(--red);
+}
+
+/* ───── difficulty badges ──────────── */
+
+.puzzle_difficulty {
+  display       : inline-block;
+  font-size     : 11px;
+  font-weight   : 700;
   text-transform: uppercase;
   letter-spacing: 1px;
-  margin-bottom : 16px;
+  padding       : 3px 12px;
+  border-radius : 20px;
+  margin-bottom : 10px;
+}
+
+.puzzle_difficulty.easy {
+  background: rgba(34,197,94,0.12);
+  color     : #16a34a;
+}
+
+.puzzle_difficulty.medium {
+  background: rgba(217,119,6,0.12);
+  color     : var(--gold);
+}
+
+.puzzle_difficulty.hard {
+  background: rgba(239,68,68,0.12);
+  color     : var(--red);
 }
 
 .timer_display {
-  font-size           : 14px;
+  font-size           : 13px;
   color               : var(--gold);
   font-variant-numeric: tabular-nums;
-  margin-bottom       : 20px;
+  margin-bottom       : 12px;
   font-weight         : 600;
 }
 
@@ -136,28 +297,31 @@ main {
   display        : flex;
   align-items    : center;
   justify-content: center;
-  gap            : 16px;
-  margin-bottom  : 28px;
+  gap            : 10px;
+  margin-bottom  : 16px;
+  flex-wrap      : wrap;
 }
 
 .clue_word {
-  font-size    : 22px;
+  font-size    : 19px;
   font-weight  : 700;
-  padding      : 12px 20px;
+  padding      : 10px 16px;
   background   : rgba(59,110,63,0.08);
   border       : 1px solid rgba(59,110,63,0.25);
-  border-radius: 12px;
+  border-radius: 10px;
+  word-break   : break-word;
+  min-width    : 0;
 }
 
 .clue_separator {
   color      : var(--muted);
-  font-size  : 20px;
+  font-size  : 18px;
   font-weight: 300;
 }
 
 .guess_row {
   display: flex;
-  gap    : 10px;
+  gap    : 8px;
   width  : 100%;
 }
 
@@ -165,9 +329,9 @@ main {
   flex          : 1;
   background    : var(--bg);
   border        : 2px solid var(--border);
-  border-radius : 12px;
-  padding       : 14px 16px;
-  font-size     : 18px;
+  border-radius : 10px;
+  padding       : 12px 14px;
+  font-size     : 16px;
   color         : var(--text);
   outline       : none;
   transition    : border-color 0.2s;
@@ -176,17 +340,15 @@ main {
   letter-spacing: 0.5px;
 }
 
-.guess_row input:focus {
-  border-color: var(--accent);
-}
+.guess_row input:focus { border-color: var(--accent); }
 
 .guess_row button {
   background   : var(--accent);
   color        : white;
   border       : none;
-  border-radius: 12px;
-  padding      : 14px 20px;
-  font-size    : 16px;
+  border-radius: 10px;
+  padding      : 12px 18px;
+  font-size    : 15px;
   font-weight  : 700;
   cursor       : pointer;
   transition   : transform 0.1s, opacity 0.2s;
@@ -195,12 +357,19 @@ main {
 .guess_row button:active   { transform: scale(0.96); }
 .guess_row button:disabled { opacity: 0.4; cursor: not-allowed; }
 
+.guess_count {
+  font-size : 12px;
+  color     : var(--muted);
+  margin-top: 8px;
+  min-height: 16px;
+}
+
 .feedback_message {
-  margin-top   : 20px;
-  padding      : 16px;
-  border-radius: 12px;
+  margin-top   : 10px;
+  padding      : 12px;
+  border-radius: 10px;
   font-weight  : 600;
-  font-size    : 16px;
+  font-size    : 14px;
   display      : none;
 }
 
@@ -218,21 +387,25 @@ main {
   border    : 1px solid rgba(239,68,68,0.3);
 }
 
-.puzzle_next_button {
-  margin-top   : 20px;
-  background   : var(--accent);
-  color        : white;
-  border       : none;
-  border-radius: 12px;
-  padding      : 14px 32px;
-  font-size    : 16px;
-  font-weight  : 700;
+.reveal_button {
+  margin-top   : 10px;
+  background   : transparent;
+  color         : var(--muted);
+  border       : 1px solid var(--border);
+  border-radius: 10px;
+  padding      : 8px 20px;
+  font-size    : 13px;
+  font-weight  : 600;
   cursor       : pointer;
-  display      : none;
-  transition   : transform 0.1s;
+  transition   : color 0.2s, border-color 0.2s;
 }
 
-.puzzle_next_button:active { transform: scale(0.96); }
+.reveal_button:hover {
+  color       : var(--red);
+  border-color: var(--red);
+}
+
+/* ───── RESULTS ────────────────────── */
 
 .results_view {
   width         : 100%;
@@ -242,13 +415,11 @@ main {
   gap           : 20px;
 }
 
-.results_view.visible {
-  display: flex;
-}
+.results_view.visible { display: flex; }
 
 .score_circle {
-  width          : 140px;
-  height         : 140px;
+  width          : 130px;
+  height         : 130px;
   border-radius  : 50%;
   border         : 5px solid var(--accent);
   display        : flex;
@@ -259,12 +430,12 @@ main {
 }
 
 .score_circle .score_number {
-  font-size  : 42px;
+  font-size  : 40px;
   font-weight: 800;
 }
 
 .score_circle .score_label {
-  font-size: 13px;
+  font-size: 12px;
   color    : var(--muted);
 }
 
@@ -298,7 +469,6 @@ main {
 }
 
 .results_row .results_row_value.green { color: var(--green); }
-.results_row .results_row_value.red   { color: var(--red); }
 
 .results_puzzle_item {
   display      : flex;
@@ -330,9 +500,7 @@ main {
   color    : var(--muted);
 }
 
-.results_puzzle_item .results_puzzle_text strong {
-  color: var(--text);
-}
+.results_puzzle_item .results_puzzle_text strong { color: var(--text); }
 
 .results_puzzle_item .results_puzzle_time {
   font-size  : 13px;
@@ -354,6 +522,8 @@ main {
 
 .game_reset_button:active { transform: scale(0.96); }
 
+/* ───── ANIMATIONS ─────────────────── */
+
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
   20%, 60% { transform: translateX(-6px); }
@@ -364,8 +534,196 @@ main {
 
 @keyframes pop {
   0%   { transform: scale(1); }
-  50%  { transform: scale(1.05); }
+  50%  { transform: scale(1.03); }
   100% { transform: scale(1); }
 }
 
 .pop { animation: pop 0.3s; }
+
+/* ───── MOBILE ─────────────────────── */
+
+@media (max-width: 480px) {
+  .intro_screen {
+    justify-content: flex-start;
+    padding-top    : 40px;
+  }
+
+  .intro_screen .header_logo {
+    max-width: 160px;
+  }
+
+  .intro_card {
+    padding: 22px 18px;
+  }
+
+  .intro_title {
+    font-size: 18px;
+  }
+
+  .intro_rule p {
+    font-size: 13px;
+  }
+
+  .intro_example .clue_word.small {
+    font-size: 14px;
+    padding  : 6px 10px;
+  }
+
+  header {
+    padding: 14px 16px 0;
+  }
+
+  .header_logo {
+    max-width: 160px;
+  }
+
+  header p {
+    font-size: 12px;
+  }
+
+  .stats_bar {
+    padding: 10px 16px;
+    gap    : 16px;
+  }
+
+  .stats_item_value {
+    font-size: 18px;
+  }
+
+  main {
+    padding: 0 12px 24px;
+  }
+
+  .puzzles_grid {
+    gap: 12px;
+  }
+
+  .puzzle_card {
+    padding      : 16px 14px;
+    border-radius: 14px;
+  }
+
+  .puzzle_difficulty {
+    font-size    : 10px;
+    padding      : 2px 10px;
+    margin-bottom: 6px;
+  }
+
+  .timer_display {
+    font-size    : 12px;
+    margin-bottom: 8px;
+  }
+
+  .clue_word {
+    font-size    : 16px;
+    padding      : 8px 12px;
+    border-radius: 8px;
+  }
+
+  .clue_separator {
+    font-size: 15px;
+  }
+
+  .guess_row input {
+    padding      : 10px 12px;
+    font-size    : 16px; /* 16px minimum prevents iOS zoom */
+    border-radius: 8px;
+  }
+
+  .guess_row button {
+    padding      : 10px 14px;
+    font-size    : 14px;
+    border-radius: 8px;
+  }
+
+  .guess_count {
+    font-size : 11px;
+    margin-top: 6px;
+    min-height: 14px;
+  }
+
+  .feedback_message {
+    margin-top   : 8px;
+    padding      : 10px;
+    font-size    : 13px;
+    border-radius: 8px;
+  }
+
+  .reveal_button {
+    margin-top   : 8px;
+    padding      : 7px 16px;
+    font-size    : 12px;
+    border-radius: 8px;
+  }
+
+  .score_circle {
+    width : 110px;
+    height: 110px;
+  }
+
+  .score_circle .score_number {
+    font-size: 34px;
+  }
+
+  .results_breakdown {
+    padding      : 16px;
+    border-radius: 14px;
+  }
+
+  .game_reset_button {
+    padding      : 12px 28px;
+    font-size    : 15px;
+    border-radius: 10px;
+  }
+}
+
+/* ───── VERY SMALL SCREENS ─────────── */
+
+@media (max-width: 360px) {
+  .clue_word {
+    font-size: 14px;
+    padding  : 7px 10px;
+  }
+
+  .clue_pair {
+    gap: 6px;
+  }
+
+  .puzzle_card {
+    padding: 14px 10px;
+  }
+
+  .stats_bar {
+    gap: 12px;
+  }
+
+  .stats_item_value {
+    font-size: 16px;
+  }
+
+  .intro_card {
+    padding: 18px 14px;
+  }
+}
+
+/* ───── TOUCH-FRIENDLY ACTIVE STATES ─ */
+
+@media (hover: none) {
+  .reveal_button:active {
+    color       : var(--red);
+    border-color: var(--red);
+    background  : rgba(239,68,68,0.05);
+  }
+
+  .intro_play_button:active {
+    background: #2d5630;
+  }
+
+  .guess_row button:active:not(:disabled) {
+    background: #2d5630;
+  }
+
+  .game_reset_button:active {
+    background: #2d5630;
+  }
+}

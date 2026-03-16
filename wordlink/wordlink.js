@@ -222,14 +222,21 @@ const puzzle_set = [
 ];
 
 // ──────────────────────────────────────
-let attempt_remaining = 2;
-let game_puzzle_index = 0;
-let game_puzzles      = [];
-let game_results      = [];
-let timer_interval    = null;
-let timer_seconds     = 0;
+// STATE
+// ──────────────────────────────────────
+let game_puzzles  = [];
+let game_state    = [null, null, null]; // per-puzzle state
+let timer_intervals = [null, null, null];
+let timer_seconds   = [0, 0, 0];
+let guess_counts    = [0, 0, 0];
 
-// ───── state ─────────────────────────
+// ───── date key ─────────────────────
+function date_key_get() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+// ───── persistence ──────────────────
 function state_load() {
   try {
     const s = JSON.parse(localStorage.getItem('wl_today'));
@@ -239,24 +246,23 @@ function state_load() {
 }
 
 function state_save() {
-  const existing = state_load();
   localStorage.setItem('wl_today', JSON.stringify({
     date: date_key_get(),
-    puzzleIdx: game_puzzle_index,
-    results: game_results,
-    done: game_puzzle_index >= 3,
-    puzzleIndices: existing ? existing.puzzleIndices : []
+    puzzleIndices: state_load()?.puzzleIndices || [],
+    puzzles: game_state,
+    timerSeconds: timer_seconds,
+    guessCounts: guess_counts,
+    done: game_state.every(s => s !== null)
   }));
 }
 
-// ───── stats ─────────────────────────
 function stats_load() {
   try { return JSON.parse(localStorage.getItem('wl_stats')) || { played: 0, streak: 0, lastPlayed: '', scores: [] }; }
   catch { return { played: 0, streak: 0, lastPlayed: '', scores: [] }; }
 }
 
-function stats_save(stats_data) {
-  localStorage.setItem('wl_stats', JSON.stringify(stats_data));
+function stats_save(data) {
+  localStorage.setItem('wl_stats', JSON.stringify(data));
 }
 
 function stats_bar_update() {
@@ -267,10 +273,21 @@ function stats_bar_update() {
   document.getElementById('stats_avg_value').textContent = avg;
 }
 
-// ───── game ──────────────────────────
+// ───── intro ────────────────────────
+function intro_dismiss() {
+  document.getElementById('intro_screen').style.display = 'none';
+  document.getElementById('game_screen').style.display  = 'flex';
+  localStorage.setItem('wl_intro_seen', '1');
+  // start timers for unsolved puzzles
+  for (let i = 0; i < 3; i++) {
+    if (game_state[i] === null) timer_start(i);
+  }
+}
+
+// ───── puzzle selection ─────────────
 function game_puzzles_select() {
   const saved = state_load();
-  if (saved && saved.puzzleIndices) {
+  if (saved && saved.puzzleIndices && saved.puzzleIndices.length === 3) {
     return saved.puzzleIndices.map(i => puzzle_set[i]);
   }
   const indices = [];
@@ -280,180 +297,178 @@ function game_puzzles_select() {
   }
   localStorage.setItem('wl_today', JSON.stringify({
     date: date_key_get(),
-    puzzleIdx: 0,
-    results: [],
-    done: false,
-    puzzleIndices: indices
+    puzzleIndices: indices,
+    puzzles: [null, null, null],
+    timerSeconds: [0, 0, 0],
+    guessCounts: [0, 0, 0],
+    done: false
   }));
   return indices.map(i => puzzle_set[i]);
 }
 
-function game_reset() {
-  localStorage.removeItem('wl_today');
-  game_puzzle_index = 0;
-  game_results      = [];
-  game_puzzles      = game_puzzles_select();
-  progress_dots_update();
-  puzzle_show();
-}
-
-// ───── timer ─────────────────────────
-function timer_start() {
-  timer_seconds = 0;
-  timer_display_update();
-  timer_interval = setInterval(() => {
-    timer_seconds++;
-    timer_display_update();
+// ───── timer ────────────────────────
+function timer_start(idx) {
+  timer_display_update(idx);
+  timer_intervals[idx] = setInterval(() => {
+    timer_seconds[idx]++;
+    timer_display_update(idx);
   }, 1000);
 }
 
-function timer_stop() {
-  clearInterval(timer_interval);
+function timer_stop(idx) {
+  clearInterval(timer_intervals[idx]);
+  timer_intervals[idx] = null;
 }
 
-function timer_display_update() {
-  const m = Math.floor(timer_seconds / 60);
-  const s = timer_seconds % 60;
-  document.getElementById('timer_display').textContent = `${m}:${String(s).padStart(2, '0')}`;
+function timer_display_update(idx) {
+  const m = Math.floor(timer_seconds[idx] / 60);
+  const s = timer_seconds[idx] % 60;
+  document.getElementById(`timer_display_${idx}`).textContent = `${m}:${String(s).padStart(2, '0')}`;
 }
 
-// ───── puzzle ────────────────────────
-function puzzle_show() {
-  if (game_puzzle_index >= 3) {
-    results_show();
-    return;
+// ───── render puzzles ───────────────
+function puzzles_render() {
+  for (let i = 0; i < 3; i++) {
+    const puzzle = game_puzzles[i];
+    document.getElementById(`clue_first_${i}`).textContent  = puzzle[0];
+    document.getElementById(`clue_second_${i}`).textContent = puzzle[1];
+
+    if (game_state[i] !== null) {
+      puzzle_lock(i);
+    } else {
+      guess_count_update(i);
+    }
+  }
+}
+
+function guess_count_update(idx) {
+  const el = document.getElementById(`guess_count_${idx}`);
+  if (guess_counts[idx] > 0) {
+    el.textContent = `${guess_counts[idx]} guess${guess_counts[idx] !== 1 ? 'es' : ''}`;
+  } else {
+    el.textContent = '';
+  }
+}
+
+function puzzle_lock(idx) {
+  const result = game_state[idx];
+  const card   = document.getElementById(`puzzle_card_${idx}`);
+  const input  = document.getElementById(`guess_input_${idx}`);
+  const btn    = document.getElementById(`guess_submit_${idx}`);
+  const fb     = document.getElementById(`feedback_message_${idx}`);
+  const reveal = document.getElementById(`reveal_button_${idx}`);
+
+  input.disabled = true;
+  btn.disabled   = true;
+  reveal.style.display = 'none';
+
+  if (result.correct) {
+    fb.className   = 'feedback_message correct';
+    fb.textContent = `Correct! "${result.answer}" in ${result.guesses} guess${result.guesses !== 1 ? 'es' : ''}`;
+    card.classList.add('solved');
+  } else {
+    fb.className   = 'feedback_message incorrect';
+    fb.textContent = `Revealed: "${result.answer}"`;
+    card.classList.add('revealed');
   }
 
-  const puzzle = game_puzzles[game_puzzle_index];
-  document.getElementById('puzzle_label').textContent         = `Puzzle ${game_puzzle_index + 1} of 3`;
-  document.getElementById('clue_first').textContent           = puzzle[0];
-  document.getElementById('clue_second').textContent          = puzzle[1];
-  document.getElementById('guess_input').value                = '';
-  document.getElementById('guess_input').disabled             = false;
-  document.getElementById('guess_submit_button').disabled     = false;
-  document.getElementById('feedback_message').className       = 'feedback_message';
-  document.getElementById('feedback_message').textContent     = '';
-  document.getElementById('puzzle_next_button').style.display = 'none';
-  document.getElementById('puzzle_card').style.display        = 'block';
-  document.getElementById('results_view').classList.remove('visible');
-
-  attempt_remaining = 2;
-  progress_dots_update();
-  timer_start();
-
-  setTimeout(() => document.getElementById('guess_input').focus(), 100);
+  guess_count_update(idx);
+  timer_display_update(idx);
 }
 
-function puzzle_advance() {
-  game_puzzle_index++;
-  state_save();
-  puzzle_show();
-}
+// ───── guessing ─────────────────────
+function guess_submit(idx) {
+  if (game_state[idx] !== null) return;
 
-// ───── play ──────────────────────────
-function date_key_get() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-}
-
-function progress_dots_update() {
-  const dots = document.querySelectorAll('.progress_dot');
-  dots.forEach((dot, i) => {
-    dot.className = 'progress_dot';
-    if (i < game_results.length) {
-      dot.classList.add(game_results[i].correct ? 'correct' : 'incorrect');
-    } else if (i === game_puzzle_index) {
-      dot.classList.add('active');
-    }
-  });
-}
-
-function guess_submit() {
-  const input = document.getElementById('guess_input');
+  const input = document.getElementById(`guess_input_${idx}`);
   const guess = input.value.trim().toLowerCase();
   if (!guess) return;
 
-  const puzzle = game_puzzles[game_puzzle_index];
+  const puzzle = game_puzzles[idx];
   const answer = puzzle[2].toLowerCase();
-  const fb     = document.getElementById('feedback_message');
-  const card   = document.getElementById('puzzle_card');
+  const fb     = document.getElementById(`feedback_message_${idx}`);
+  const card   = document.getElementById(`puzzle_card_${idx}`);
+
+  guess_counts[idx]++;
 
   if (guess === answer) {
-    timer_stop();
-    fb.className   = 'feedback_message correct';
-    fb.textContent = `Correct! The answer is "${puzzle[2]}"`;
-    card.classList.add('pop');
-    setTimeout(() => card.classList.remove('pop'), 300);
-
-    game_results.push({
+    timer_stop(idx);
+    game_state[idx] = {
       correct: true,
-      time: timer_seconds,
+      time: timer_seconds[idx],
+      guesses: guess_counts[idx],
       answer: puzzle[2],
-      guess,
       word1: puzzle[0],
       word2: puzzle[1]
-    });
-
-    input.disabled = true;
-    document.getElementById('guess_submit_button').disabled     = true;
-    document.getElementById('puzzle_next_button').style.display = 'inline-block';
-    document.getElementById('puzzle_next_button').textContent   = game_puzzle_index < 2 ? 'Next Puzzle' : 'See Results';
-    progress_dots_update();
+    };
+    puzzle_lock(idx);
+    card.classList.add('pop');
+    setTimeout(() => card.classList.remove('pop'), 300);
     state_save();
+    check_all_done();
   } else {
-    attempt_remaining--;
-    if (attempt_remaining > 0) {
-      fb.className   = 'feedback_message incorrect';
-      fb.textContent = `Not quite! ${attempt_remaining} attempt${attempt_remaining > 1 ? 's' : ''} remaining`;
-      card.classList.add('shake');
-      setTimeout(() => card.classList.remove('shake'), 400);
-      input.value = '';
-      input.focus();
-    } else {
-      timer_stop();
-      fb.className   = 'feedback_message incorrect';
-      fb.textContent = `The answer was "${puzzle[2]}"`;
-
-      game_results.push({
-        correct: false,
-        time: timer_seconds,
-        answer: puzzle[2],
-        guess,
-        word1: puzzle[0],
-        word2: puzzle[1]
-      });
-
-      input.disabled = true;
-      document.getElementById('guess_submit_button').disabled     = true;
-      document.getElementById('puzzle_next_button').style.display = 'inline-block';
-      document.getElementById('puzzle_next_button').textContent   = game_puzzle_index < 2 ? 'Next Puzzle' : 'See Results';
-      progress_dots_update();
-      state_save();
-    }
+    fb.className   = 'feedback_message incorrect';
+    fb.textContent = 'Not quite — try again!';
+    card.classList.add('shake');
+    setTimeout(() => card.classList.remove('shake'), 400);
+    input.value = '';
+    input.focus();
+    guess_count_update(idx);
+    state_save();
   }
 }
 
+function puzzle_reveal(idx) {
+  if (game_state[idx] !== null) return;
+
+  timer_stop(idx);
+  const puzzle = game_puzzles[idx];
+  game_state[idx] = {
+    correct: false,
+    time: timer_seconds[idx],
+    guesses: guess_counts[idx],
+    answer: puzzle[2],
+    word1: puzzle[0],
+    word2: puzzle[1]
+  };
+  puzzle_lock(idx);
+  state_save();
+  check_all_done();
+}
+
+function check_all_done() {
+  if (!game_state.every(s => s !== null)) return;
+
+  // small delay so player sees the last result before results screen
+  setTimeout(() => results_show(), 800);
+}
+
+// ───── scoring ──────────────────────
 function score_calculate() {
   let score = 0;
-  game_results.forEach(r => {
-    if (r.correct) {
-      let pts = 100;
-      if (r.time <= 10) pts += 50;
-      else if (r.time < 60) pts += Math.round(50 * (1 - (r.time - 10) / 50));
-      score += pts;
-    }
+  game_state.forEach(r => {
+    if (!r || !r.correct) return;
+    let pts = 100;
+    // bonus for speed
+    if (r.time <= 10) pts += 50;
+    else if (r.time < 60) pts += Math.round(50 * (1 - (r.time - 10) / 50));
+    // bonus for fewer guesses
+    if (r.guesses === 1) pts += 50;
+    else if (r.guesses === 2) pts += 25;
+    else if (r.guesses === 3) pts += 10;
+    score += pts;
   });
   return score;
 }
 
+// ───── results ──────────────────────
 function results_show() {
-  document.getElementById('puzzle_card').style.display = 'none';
+  document.getElementById('puzzles_grid').style.display = 'none';
   document.getElementById('results_view').classList.add('visible');
-  timer_stop();
 
   const score     = score_calculate();
-  const correct   = game_results.filter(r => r.correct).length;
-  const totalTime = game_results.reduce((s, r) => s + r.time, 0);
+  const correct   = game_state.filter(r => r && r.correct).length;
+  const totalTime = game_state.reduce((s, r) => s + (r ? r.time : 0), 0);
   const tm        = Math.floor(totalTime / 60);
   const ts        = totalTime % 60;
 
@@ -461,16 +476,21 @@ function results_show() {
   document.getElementById('results_correct_value').textContent = `${correct}/3`;
   document.getElementById('results_time_value').textContent    = `${tm}:${String(ts).padStart(2, '0')}`;
 
+  const labels = ['Easy', 'Medium', 'Hard'];
   const container = document.getElementById('results_puzzle_list');
   container.innerHTML = '';
-  game_results.forEach((r) => {
+  game_state.forEach((r, i) => {
+    if (!r) return;
     const pm  = Math.floor(r.time / 60);
     const ps  = r.time % 60;
     const div = document.createElement('div');
     div.className = 'results_puzzle_item';
     div.innerHTML = `
       <div class="results_puzzle_icon ${r.correct ? 'correct' : 'incorrect'}">${r.correct ? '&#10003;' : '&#10007;'}</div>
-      <div class="results_puzzle_text"><strong>${r.word1} &amp; ${r.word2}</strong><br>Answer: ${r.answer}</div>
+      <div class="results_puzzle_text">
+        <strong>${labels[i]}: ${r.word1} &amp; ${r.word2}</strong><br>
+        Answer: ${r.answer}${r.correct ? ' (' + r.guesses + ' guess' + (r.guesses !== 1 ? 'es' : '') + ')' : ' (revealed)'}
+      </div>
       <div class="results_puzzle_time">${pm}:${String(ps).padStart(2, '0')}</div>
     `;
     container.appendChild(div);
@@ -482,7 +502,6 @@ function results_show() {
     stats.played++;
     stats.scores.push(score);
     if (stats.scores.length > 30) stats.scores.shift();
-
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     const yKey = `${yesterday.getFullYear()}-${String(yesterday.getMonth()+1).padStart(2,'0')}-${String(yesterday.getDate()).padStart(2,'0')}`;
@@ -490,34 +509,78 @@ function results_show() {
     stats.lastPlayed = today;
     stats_save(stats);
   }
-
   stats_bar_update();
 }
 
-// ───── init ──────────────────────────
+// ───── reset ────────────────────────
+function game_reset() {
+  localStorage.removeItem('wl_today');
+  game_state    = [null, null, null];
+  timer_seconds = [0, 0, 0];
+  guess_counts  = [0, 0, 0];
+  timer_intervals.forEach((_, i) => timer_stop(i));
+
+  game_puzzles = game_puzzles_select();
+
+  // reset UI
+  document.getElementById('puzzles_grid').style.display = '';
+  document.getElementById('results_view').classList.remove('visible');
+
+  for (let i = 0; i < 3; i++) {
+    const card   = document.getElementById(`puzzle_card_${i}`);
+    const input  = document.getElementById(`guess_input_${i}`);
+    const btn    = document.getElementById(`guess_submit_${i}`);
+    const fb     = document.getElementById(`feedback_message_${i}`);
+    const reveal = document.getElementById(`reveal_button_${i}`);
+    const gc     = document.getElementById(`guess_count_${i}`);
+
+    card.classList.remove('solved', 'revealed');
+    input.disabled = false;
+    input.value    = '';
+    btn.disabled   = false;
+    fb.className   = 'feedback_message';
+    fb.textContent = '';
+    reveal.style.display = '';
+    gc.textContent = '';
+  }
+
+  puzzles_render();
+  for (let i = 0; i < 3; i++) timer_start(i);
+}
+
+// ───── init ─────────────────────────
 game_puzzles = game_puzzles_select();
 stats_bar_update();
 
 const saved = state_load();
-if (saved && saved.done) {
-  game_results      = saved.results;
-  game_puzzle_index = 3;
-  progress_dots_update();
-  results_show();
-} else {
-  if (saved && saved.puzzleIdx > 0) {
-    game_results      = saved.results;
-    game_puzzle_index = saved.puzzleIdx;
-    progress_dots_update();
-  }
-  puzzle_show();
+if (saved) {
+  if (saved.puzzles)      game_state    = saved.puzzles;
+  if (saved.timerSeconds) timer_seconds = saved.timerSeconds;
+  if (saved.guessCounts)  guess_counts  = saved.guessCounts;
 }
 
-document.getElementById('guess_input').addEventListener('keydown', e => {
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    if (!document.getElementById('guess_input').disabled) {
-      guess_submit();
-    }
+puzzles_render();
+
+// show intro or go straight to game
+if (localStorage.getItem('wl_intro_seen') && !(saved && saved.done)) {
+  document.getElementById('intro_screen').style.display = 'none';
+  document.getElementById('game_screen').style.display  = 'flex';
+  for (let i = 0; i < 3; i++) {
+    if (game_state[i] === null) timer_start(i);
   }
+} else if (saved && saved.done) {
+  document.getElementById('intro_screen').style.display = 'none';
+  document.getElementById('game_screen').style.display  = 'flex';
+  results_show();
+}
+
+// enter key submits for whichever input is focused
+document.querySelectorAll('[id^="guess_input_"]').forEach(input => {
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const idx = parseInt(input.id.split('_').pop());
+      if (!input.disabled) guess_submit(idx);
+    }
+  });
 });
