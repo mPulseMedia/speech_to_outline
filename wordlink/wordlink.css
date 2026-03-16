@@ -148,6 +148,23 @@ body {
 
 .intro_play_button:active { transform: scale(0.97); }
 
+.intro_close_button {
+  display      : block;
+  width        : 100%;
+  background   : var(--accent);
+  color        : white;
+  border       : none;
+  border-radius: 14px;
+  padding      : 16px;
+  font-size    : 18px;
+  font-weight  : 700;
+  cursor       : pointer;
+  transition   : transform 0.1s;
+  margin-top   : 8px;
+}
+
+.intro_close_button:active { transform: scale(0.97); }
+
 /* ───── GAME SCREEN ────────────────── */
 
 .game_screen {
@@ -170,10 +187,38 @@ header {
   height   : auto;
 }
 
+header {
+  position: relative;
+}
+
 header p {
   color     : var(--muted);
   font-size : 13px;
   margin-top: 4px;
+}
+
+.help_button {
+  position     : absolute;
+  top          : 20px;
+  right        : 20px;
+  width        : 32px;
+  height       : 32px;
+  border-radius: 50%;
+  border       : 2px solid var(--border);
+  background   : var(--bg);
+  color        : var(--muted);
+  font-size    : 16px;
+  font-weight  : 700;
+  cursor       : pointer;
+  display      : flex;
+  align-items  : center;
+  justify-content: center;
+  transition   : border-color 0.2s, color 0.2s;
+}
+
+.help_button:active {
+  border-color: var(--accent);
+  color       : var(--accent);
 }
 
 .stats_bar {

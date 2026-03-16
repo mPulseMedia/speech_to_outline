@@ -280,8 +280,20 @@ function intro_dismiss() {
   localStorage.setItem('wl_intro_seen', '1');
   // start timers for unsolved puzzles
   for (let i = 0; i < 3; i++) {
-    if (game_state[i] === null) timer_start(i);
+    if (game_state[i] === null && !timer_intervals[i]) timer_start(i);
   }
+}
+
+function intro_show() {
+  // pause timers while viewing instructions
+  for (let i = 0; i < 3; i++) {
+    if (timer_intervals[i]) timer_stop(i);
+  }
+  document.getElementById('game_screen').style.display  = 'none';
+  document.getElementById('intro_screen').style.display = 'flex';
+  // show "Got it" instead of "Play" when returning
+  document.getElementById('intro_play_button').style.display  = 'none';
+  document.getElementById('intro_close_button').style.display = 'block';
 }
 
 // ───── puzzle selection ─────────────
