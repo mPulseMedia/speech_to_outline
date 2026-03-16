@@ -1,8 +1,172 @@
 Word Link App - Chat Log
-========================
 
-2026-03-12: Initial build of Word Link mobile web app.
-- Daily puzzle game with 3 puzzles per day
-- Two words given, player finds the linking word
-- Tracks correct/incorrect answers and solve time
-- Score formulated from accuracy and speed
+1.  Initial build (2026-03-12)
+    A.  Daily puzzle game, 3 puzzles per day.
+    B.  Two clue words given, player finds
+        the linking word.
+    C.  Tracks correct/incorrect and solve
+        time.
+    D.  Score from accuracy and speed.
+
+2.  Nomenclature rename (2026-03-14)
+    A.  Renamed all methods, variables,
+        element IDs, and CSS classes.
+    B.  Pattern: `concept[_modifier][_verb]`.
+    C.  Snake case, lowercase throughout.
+    D.  Related code shares a concept prefix.
+
+3.  Key concepts (~20 domain nouns)
+    A.  `puzzle`: single puzzle (two clues
+        plus one link word).
+    B.  `puzzle_set`: full collection of all
+        221 puzzles.
+    C.  `game`: today's session of 3 puzzles.
+    D.  `clue`: hint word shown to player.
+    E.  `guess`: user's submitted answer.
+    F.  `attempt`: remaining tries per puzzle
+        (starts at 2).
+    G.  `timer`: elapsed time tracking.
+    H.  `score`: points earned.
+    I.  `stats`: cumulative player statistics
+        (played, streak, avg).
+    J.  `streak`: consecutive days played.
+    K.  `progress`: dot indicators for puzzle
+        completion.
+    L.  `result`: outcome of one puzzle
+        (correct/incorrect plus time).
+    M.  `results`: final summary screen and
+        breakdown.
+    N.  `feedback`: message shown after a
+        guess.
+    O.  `state`: persisted session data in
+        localStorage.
+    P.  `date`: today's date key
+        (YYYY-MM-DD).
+    Q.  `card`: puzzle display container.
+    R.  `input`: text entry field.
+    S.  `button`: action trigger.
+
+4.  Verbs (consistent across concepts)
+    A.  `load`: read from localStorage.
+    B.  `save`: write to localStorage.
+    C.  `show`: render/display on screen.
+    D.  `start`: begin (e.g. timer).
+    E.  `stop`: halt (e.g. timer).
+    F.  `update`: refresh a display element.
+    G.  `calculate`: compute a value.
+    H.  `submit`: send user input for
+        evaluation.
+    I.  `advance`: move to next puzzle.
+    J.  `reset`: clear state and restart.
+    K.  `select`: pick/choose (e.g. today's
+        puzzles).
+    L.  `get`: derive/retrieve a value.
+
+5.  Variables (module-level state)
+    A.  `puzzle_set` was `allPuzzles`.
+    B.  `game_puzzle_index` was
+        `currentPuzzleIdx`.
+    C.  `game_results` was `puzzleResults`.
+    D.  `timer_interval` was
+        `timerInterval`.
+    E.  `timer_seconds` was
+        `secondsElapsed`.
+    F.  `game_puzzles` was `todayPuzzles`.
+    G.  `attempt_remaining` was
+        `attemptsLeft`.
+
+6.  Functions
+    A.  `date_key_get` was `getTodayKey`.
+    B.  `game_puzzles_select` was
+        `getTodayPuzzles`.
+    C.  `stats_load` was `loadStats`.
+    D.  `stats_save(stats_data)` was
+        `saveStats(stats)`.
+    E.  `state_load` was `loadTodayState`.
+    F.  `state_save` was `saveTodayState`.
+    G.  `stats_bar_update` was
+        `updateStatsBar`.
+    H.  `progress_dots_update` was
+        `updateDots`.
+    I.  `timer_start` was `startTimer`.
+    J.  `timer_stop` was `stopTimer`.
+    K.  `timer_display_update` was
+        `updateTimerDisplay`.
+    L.  `puzzle_show` was `showPuzzle`.
+    M.  `guess_submit` was `submitGuess`.
+    N.  `puzzle_advance` was `nextPuzzle`.
+    O.  `results_show` was `showResults`.
+    P.  `score_calculate` was
+        `calculateScore`.
+    Q.  `game_reset` was `newGame`.
+
+7.  Element IDs
+    A.  `stats_streak_value` was
+        `streakVal`.
+    B.  `stats_played_value` was
+        `playedVal`.
+    C.  `stats_avg_value` was
+        `avgScoreVal`.
+    D.  `puzzle_label` was `puzzleLabel`.
+    E.  `clue_first` was `word1`.
+    F.  `clue_second` was `word2`.
+    G.  `guess_input` was `guessInput`.
+    H.  `guess_submit_button` was
+        `submitBtn`.
+    I.  `feedback_message` was `feedback`.
+    J.  `puzzle_next_button` was `nextBtn`.
+    K.  `puzzle_card` was `puzzleCard`.
+    L.  `results_view` was `resultsView`.
+    M.  `timer_display` was `timer`.
+    N.  `score_final_value` was
+        `finalScore`.
+    O.  `results_correct_value` was
+        `resCorrect`.
+    P.  `results_time_value` was
+        `resTotalTime`.
+    Q.  `results_puzzle_list` was
+        `puzzleResults` (DOM).
+    R.  `progress_dots` was `dots`.
+
+8.  CSS classes
+    A.  `progress_dot` was `dot`.
+    B.  `progress_dots` was
+        `progress-dots`.
+    C.  `feedback_message` was `feedback`.
+    D.  `puzzle_card` was `puzzle-card`.
+    E.  `puzzle_label` was `puzzle-label`.
+    F.  `puzzle_next_button` was
+        `next-btn`.
+    G.  `results_view` was `results`.
+    H.  `game_reset_button` was
+        `play-again-btn`.
+    I.  `stats_bar` was `stats-bar`.
+    J.  `stats_item` was `stat`.
+    K.  `stats_item_value` was
+        `stat-value`.
+    L.  `stats_item_label` was
+        `stat-label`.
+    M.  `timer_display` was `timer`.
+    N.  `clue_pair` was `word-pair`.
+    O.  `clue_word` was `word`.
+    P.  `clue_separator` was `ampersand`.
+    Q.  `guess_row` was `input-row`.
+    R.  `header_logo` was `logo`.
+    S.  `score_circle` was `score-circle`.
+    T.  `score_number` was `score-num`.
+    U.  `score_label` was `score-of`.
+    V.  `results_breakdown` was
+        `results-breakdown`.
+    W.  `results_row` was `result-row`.
+    X.  `results_row_label` was
+        `rr-label`.
+    Y.  `results_row_value` was
+        `rr-value`.
+    Z.  `results_puzzle_item` was
+        `puzzle-result`.
+    AA. `results_puzzle_icon` was
+        `pr-icon`.
+    AB. `results_puzzle_text` was
+        `pr-text`.
+    AC. `results_puzzle_time` was
+        `pr-time`.

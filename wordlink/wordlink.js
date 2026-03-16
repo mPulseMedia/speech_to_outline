@@ -1,7 +1,7 @@
 // ──────────────────────────────────────
 // PUZZLE DATA
 // ──────────────────────────────────────
-const allPuzzles = [
+const puzzle_set = [
   ["Pummel", "Rhythm", "Beat"],
   ["Peachy", "Inflammation", "Swell"],
   ["Forthright", "Dull", "Blunt"],
@@ -222,162 +222,172 @@ const allPuzzles = [
 ];
 
 // ──────────────────────────────────────
-// STATE
-// ──────────────────────────────────────
-let currentPuzzleIdx = 0;
-let puzzleResults = [];
-let timerInterval = null;
-let secondsElapsed = 0;
-let todayPuzzles = [];
-let attemptsLeft = 2;
+let attempt_remaining = 2;
+let game_puzzle_index = 0;
+let game_puzzles      = [];
+let game_results      = [];
+let timer_interval    = null;
+let timer_seconds     = 0;
 
-function getTodayKey() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+// ───── state ─────────────────────────
+function state_load() {
+  try {
+    const s = JSON.parse(localStorage.getItem('wl_today'));
+    if (s && s.date === date_key_get()) return s;
+  } catch {}
+  return null;
 }
 
-function getTodayPuzzles() {
-  // Check if we already picked puzzles for today
-  const saved = loadTodayState();
+function state_save() {
+  const existing = state_load();
+  localStorage.setItem('wl_today', JSON.stringify({
+    date: date_key_get(),
+    puzzleIdx: game_puzzle_index,
+    results: game_results,
+    done: game_puzzle_index >= 3,
+    puzzleIndices: existing ? existing.puzzleIndices : []
+  }));
+}
+
+// ───── stats ─────────────────────────
+function stats_load() {
+  try { return JSON.parse(localStorage.getItem('wl_stats')) || { played: 0, streak: 0, lastPlayed: '', scores: [] }; }
+  catch { return { played: 0, streak: 0, lastPlayed: '', scores: [] }; }
+}
+
+function stats_save(stats_data) {
+  localStorage.setItem('wl_stats', JSON.stringify(stats_data));
+}
+
+function stats_bar_update() {
+  const stats = stats_load();
+  document.getElementById('stats_streak_value').textContent = stats.streak;
+  document.getElementById('stats_played_value').textContent = stats.played;
+  const avg = stats.scores.length ? Math.round(stats.scores.reduce((a,b) => a+b, 0) / stats.scores.length) : 0;
+  document.getElementById('stats_avg_value').textContent = avg;
+}
+
+// ───── game ──────────────────────────
+function game_puzzles_select() {
+  const saved = state_load();
   if (saved && saved.puzzleIndices) {
-    return saved.puzzleIndices.map(i => allPuzzles[i]);
+    return saved.puzzleIndices.map(i => puzzle_set[i]);
   }
-  // Pick 3 random non-repeating puzzles
   const indices = [];
   while (indices.length < 3) {
-    const idx = Math.floor(Math.random() * allPuzzles.length);
+    const idx = Math.floor(Math.random() * puzzle_set.length);
     if (!indices.includes(idx)) indices.push(idx);
   }
-  // Save the indices so refreshing keeps the same puzzles
   localStorage.setItem('wl_today', JSON.stringify({
-    date: getTodayKey(),
+    date: date_key_get(),
     puzzleIdx: 0,
     results: [],
     done: false,
     puzzleIndices: indices
   }));
-  return indices.map(i => allPuzzles[i]);
+  return indices.map(i => puzzle_set[i]);
 }
 
-// ──────────────────────────────────────
-// LOCAL STORAGE
-// ──────────────────────────────────────
-function loadStats() {
-  try { return JSON.parse(localStorage.getItem('wl_stats')) || { played: 0, streak: 0, lastPlayed: '', scores: [] }; }
-  catch { return { played: 0, streak: 0, lastPlayed: '', scores: [] }; }
+function game_reset() {
+  localStorage.removeItem('wl_today');
+  game_puzzle_index = 0;
+  game_results      = [];
+  game_puzzles      = game_puzzles_select();
+  progress_dots_update();
+  puzzle_show();
 }
 
-function saveStats(stats) {
-  localStorage.setItem('wl_stats', JSON.stringify(stats));
+// ───── timer ─────────────────────────
+function timer_start() {
+  timer_seconds = 0;
+  timer_display_update();
+  timer_interval = setInterval(() => {
+    timer_seconds++;
+    timer_display_update();
+  }, 1000);
 }
 
-function loadTodayState() {
-  try {
-    const s = JSON.parse(localStorage.getItem('wl_today'));
-    if (s && s.date === getTodayKey()) return s;
-  } catch {}
-  return null;
+function timer_stop() {
+  clearInterval(timer_interval);
 }
 
-function saveTodayState() {
-  const existing = loadTodayState();
-  localStorage.setItem('wl_today', JSON.stringify({
-    date: getTodayKey(),
-    puzzleIdx: currentPuzzleIdx,
-    results: puzzleResults,
-    done: currentPuzzleIdx >= 3,
-    puzzleIndices: existing ? existing.puzzleIndices : []
-  }));
+function timer_display_update() {
+  const m = Math.floor(timer_seconds / 60);
+  const s = timer_seconds % 60;
+  document.getElementById('timer_display').textContent = `${m}:${String(s).padStart(2, '0')}`;
 }
 
-// ──────────────────────────────────────
-// UI
-// ──────────────────────────────────────
-function updateStatsBar() {
-  const stats = loadStats();
-  document.getElementById('streakVal').textContent = stats.streak;
-  document.getElementById('playedVal').textContent = stats.played;
-  const avg = stats.scores.length ? Math.round(stats.scores.reduce((a,b) => a+b, 0) / stats.scores.length) : 0;
-  document.getElementById('avgScoreVal').textContent = avg;
+// ───── puzzle ────────────────────────
+function puzzle_show() {
+  if (game_puzzle_index >= 3) {
+    results_show();
+    return;
+  }
+
+  const puzzle = game_puzzles[game_puzzle_index];
+  document.getElementById('puzzle_label').textContent         = `Puzzle ${game_puzzle_index + 1} of 3`;
+  document.getElementById('clue_first').textContent           = puzzle[0];
+  document.getElementById('clue_second').textContent          = puzzle[1];
+  document.getElementById('guess_input').value                = '';
+  document.getElementById('guess_input').disabled             = false;
+  document.getElementById('guess_submit_button').disabled     = false;
+  document.getElementById('feedback_message').className       = 'feedback_message';
+  document.getElementById('feedback_message').textContent     = '';
+  document.getElementById('puzzle_next_button').style.display = 'none';
+  document.getElementById('puzzle_card').style.display        = 'block';
+  document.getElementById('results_view').classList.remove('visible');
+
+  attempt_remaining = 2;
+  progress_dots_update();
+  timer_start();
+
+  setTimeout(() => document.getElementById('guess_input').focus(), 100);
 }
 
-function updateDots() {
-  const dots = document.querySelectorAll('.dot');
+function puzzle_advance() {
+  game_puzzle_index++;
+  state_save();
+  puzzle_show();
+}
+
+// ───── play ──────────────────────────
+function date_key_get() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function progress_dots_update() {
+  const dots = document.querySelectorAll('.progress_dot');
   dots.forEach((dot, i) => {
-    dot.className = 'dot';
-    if (i < puzzleResults.length) {
-      dot.classList.add(puzzleResults[i].correct ? 'correct' : 'incorrect');
-    } else if (i === currentPuzzleIdx) {
+    dot.className = 'progress_dot';
+    if (i < game_results.length) {
+      dot.classList.add(game_results[i].correct ? 'correct' : 'incorrect');
+    } else if (i === game_puzzle_index) {
       dot.classList.add('active');
     }
   });
 }
 
-function startTimer() {
-  secondsElapsed = 0;
-  updateTimerDisplay();
-  timerInterval = setInterval(() => {
-    secondsElapsed++;
-    updateTimerDisplay();
-  }, 1000);
-}
-
-function stopTimer() {
-  clearInterval(timerInterval);
-}
-
-function updateTimerDisplay() {
-  const m = Math.floor(secondsElapsed / 60);
-  const s = secondsElapsed % 60;
-  document.getElementById('timer').textContent = `${m}:${String(s).padStart(2, '0')}`;
-}
-
-function showPuzzle() {
-  if (currentPuzzleIdx >= 3) {
-    showResults();
-    return;
-  }
-
-  const puzzle = todayPuzzles[currentPuzzleIdx];
-  document.getElementById('puzzleLabel').textContent = `Puzzle ${currentPuzzleIdx + 1} of 3`;
-  document.getElementById('word1').textContent = puzzle[0];
-  document.getElementById('word2').textContent = puzzle[1];
-  document.getElementById('guessInput').value = '';
-  document.getElementById('guessInput').disabled = false;
-  document.getElementById('submitBtn').disabled = false;
-  document.getElementById('feedback').className = 'feedback';
-  document.getElementById('feedback').textContent = '';
-  document.getElementById('nextBtn').style.display = 'none';
-  document.getElementById('puzzleCard').style.display = 'block';
-  document.getElementById('resultsView').classList.remove('visible');
-
-  attemptsLeft = 2;
-  updateDots();
-  startTimer();
-
-  setTimeout(() => document.getElementById('guessInput').focus(), 100);
-}
-
-function submitGuess() {
-  const input = document.getElementById('guessInput');
+function guess_submit() {
+  const input = document.getElementById('guess_input');
   const guess = input.value.trim().toLowerCase();
   if (!guess) return;
 
-  const puzzle = todayPuzzles[currentPuzzleIdx];
+  const puzzle = game_puzzles[game_puzzle_index];
   const answer = puzzle[2].toLowerCase();
-  const fb = document.getElementById('feedback');
-  const card = document.getElementById('puzzleCard');
+  const fb     = document.getElementById('feedback_message');
+  const card   = document.getElementById('puzzle_card');
 
   if (guess === answer) {
-    stopTimer();
-    fb.className = 'feedback correct';
+    timer_stop();
+    fb.className   = 'feedback_message correct';
     fb.textContent = `Correct! The answer is "${puzzle[2]}"`;
     card.classList.add('pop');
     setTimeout(() => card.classList.remove('pop'), 300);
 
-    puzzleResults.push({
+    game_results.push({
       correct: true,
-      time: secondsElapsed,
+      time: timer_seconds,
       answer: puzzle[2],
       guess,
       word1: puzzle[0],
@@ -385,28 +395,28 @@ function submitGuess() {
     });
 
     input.disabled = true;
-    document.getElementById('submitBtn').disabled = true;
-    document.getElementById('nextBtn').style.display = 'inline-block';
-    document.getElementById('nextBtn').textContent = currentPuzzleIdx < 2 ? 'Next Puzzle' : 'See Results';
-    updateDots();
-    saveTodayState();
+    document.getElementById('guess_submit_button').disabled     = true;
+    document.getElementById('puzzle_next_button').style.display = 'inline-block';
+    document.getElementById('puzzle_next_button').textContent   = game_puzzle_index < 2 ? 'Next Puzzle' : 'See Results';
+    progress_dots_update();
+    state_save();
   } else {
-    attemptsLeft--;
-    if (attemptsLeft > 0) {
-      fb.className = 'feedback incorrect';
-      fb.textContent = `Not quite! ${attemptsLeft} attempt${attemptsLeft > 1 ? 's' : ''} remaining`;
+    attempt_remaining--;
+    if (attempt_remaining > 0) {
+      fb.className   = 'feedback_message incorrect';
+      fb.textContent = `Not quite! ${attempt_remaining} attempt${attempt_remaining > 1 ? 's' : ''} remaining`;
       card.classList.add('shake');
       setTimeout(() => card.classList.remove('shake'), 400);
       input.value = '';
       input.focus();
     } else {
-      stopTimer();
-      fb.className = 'feedback incorrect';
+      timer_stop();
+      fb.className   = 'feedback_message incorrect';
       fb.textContent = `The answer was "${puzzle[2]}"`;
 
-      puzzleResults.push({
+      game_results.push({
         correct: false,
-        time: secondsElapsed,
+        time: timer_seconds,
         answer: puzzle[2],
         guess,
         word1: puzzle[0],
@@ -414,27 +424,18 @@ function submitGuess() {
       });
 
       input.disabled = true;
-      document.getElementById('submitBtn').disabled = true;
-      document.getElementById('nextBtn').style.display = 'inline-block';
-      document.getElementById('nextBtn').textContent = currentPuzzleIdx < 2 ? 'Next Puzzle' : 'See Results';
-      updateDots();
-      saveTodayState();
+      document.getElementById('guess_submit_button').disabled     = true;
+      document.getElementById('puzzle_next_button').style.display = 'inline-block';
+      document.getElementById('puzzle_next_button').textContent   = game_puzzle_index < 2 ? 'Next Puzzle' : 'See Results';
+      progress_dots_update();
+      state_save();
     }
   }
 }
 
-function nextPuzzle() {
-  currentPuzzleIdx++;
-  saveTodayState();
-  showPuzzle();
-}
-
-// ──────────────────────────────────────
-// SCORING
-// ──────────────────────────────────────
-function calculateScore() {
+function score_calculate() {
   let score = 0;
-  puzzleResults.forEach(r => {
+  game_results.forEach(r => {
     if (r.correct) {
       let pts = 100;
       if (r.time <= 10) pts += 50;
@@ -445,41 +446,38 @@ function calculateScore() {
   return score;
 }
 
-// ──────────────────────────────────────
-// RESULTS
-// ──────────────────────────────────────
-function showResults() {
-  document.getElementById('puzzleCard').style.display = 'none';
-  document.getElementById('resultsView').classList.add('visible');
-  stopTimer();
+function results_show() {
+  document.getElementById('puzzle_card').style.display = 'none';
+  document.getElementById('results_view').classList.add('visible');
+  timer_stop();
 
-  const score = calculateScore();
-  const correct = puzzleResults.filter(r => r.correct).length;
-  const totalTime = puzzleResults.reduce((s, r) => s + r.time, 0);
-  const tm = Math.floor(totalTime / 60);
-  const ts = totalTime % 60;
+  const score     = score_calculate();
+  const correct   = game_results.filter(r => r.correct).length;
+  const totalTime = game_results.reduce((s, r) => s + r.time, 0);
+  const tm        = Math.floor(totalTime / 60);
+  const ts        = totalTime % 60;
 
-  document.getElementById('finalScore').textContent = score;
-  document.getElementById('resCorrect').textContent = `${correct}/3`;
-  document.getElementById('resTotalTime').textContent = `${tm}:${String(ts).padStart(2, '0')}`;
+  document.getElementById('score_final_value').textContent     = score;
+  document.getElementById('results_correct_value').textContent = `${correct}/3`;
+  document.getElementById('results_time_value').textContent    = `${tm}:${String(ts).padStart(2, '0')}`;
 
-  const container = document.getElementById('puzzleResults');
+  const container = document.getElementById('results_puzzle_list');
   container.innerHTML = '';
-  puzzleResults.forEach((r) => {
-    const pm = Math.floor(r.time / 60);
-    const ps = r.time % 60;
+  game_results.forEach((r) => {
+    const pm  = Math.floor(r.time / 60);
+    const ps  = r.time % 60;
     const div = document.createElement('div');
-    div.className = 'puzzle-result';
+    div.className = 'results_puzzle_item';
     div.innerHTML = `
-      <div class="pr-icon ${r.correct ? 'correct' : 'incorrect'}">${r.correct ? '&#10003;' : '&#10007;'}</div>
-      <div class="pr-text"><strong>${r.word1} &amp; ${r.word2}</strong><br>Answer: ${r.answer}</div>
-      <div class="pr-time">${pm}:${String(ps).padStart(2, '0')}</div>
+      <div class="results_puzzle_icon ${r.correct ? 'correct' : 'incorrect'}">${r.correct ? '&#10003;' : '&#10007;'}</div>
+      <div class="results_puzzle_text"><strong>${r.word1} &amp; ${r.word2}</strong><br>Answer: ${r.answer}</div>
+      <div class="results_puzzle_time">${pm}:${String(ps).padStart(2, '0')}</div>
     `;
     container.appendChild(div);
   });
 
-  const stats = loadStats();
-  const today = getTodayKey();
+  const stats = stats_load();
+  const today = date_key_get();
   if (stats.lastPlayed !== today) {
     stats.played++;
     stats.scores.push(score);
@@ -490,48 +488,36 @@ function showResults() {
     const yKey = `${yesterday.getFullYear()}-${String(yesterday.getMonth()+1).padStart(2,'0')}-${String(yesterday.getDate()).padStart(2,'0')}`;
     stats.streak = (stats.lastPlayed === yKey) ? stats.streak + 1 : 1;
     stats.lastPlayed = today;
-    saveStats(stats);
+    stats_save(stats);
   }
 
-  updateStatsBar();
+  stats_bar_update();
 }
 
-function newGame() {
-  // Clear today's state and pick fresh random puzzles
-  localStorage.removeItem('wl_today');
-  currentPuzzleIdx = 0;
-  puzzleResults = [];
-  todayPuzzles = getTodayPuzzles();
-  updateDots();
-  showPuzzle();
-}
+// ───── init ──────────────────────────
+game_puzzles = game_puzzles_select();
+stats_bar_update();
 
-// ──────────────────────────────────────
-// INIT
-// ──────────────────────────────────────
-todayPuzzles = getTodayPuzzles();
-updateStatsBar();
-
-const saved = loadTodayState();
+const saved = state_load();
 if (saved && saved.done) {
-  puzzleResults = saved.results;
-  currentPuzzleIdx = 3;
-  updateDots();
-  showResults();
+  game_results      = saved.results;
+  game_puzzle_index = 3;
+  progress_dots_update();
+  results_show();
 } else {
   if (saved && saved.puzzleIdx > 0) {
-    puzzleResults = saved.results;
-    currentPuzzleIdx = saved.puzzleIdx;
-    updateDots();
+    game_results      = saved.results;
+    game_puzzle_index = saved.puzzleIdx;
+    progress_dots_update();
   }
-  showPuzzle();
+  puzzle_show();
 }
 
-document.getElementById('guessInput').addEventListener('keydown', e => {
+document.getElementById('guess_input').addEventListener('keydown', e => {
   if (e.key === 'Enter') {
     e.preventDefault();
-    if (!document.getElementById('guessInput').disabled) {
-      submitGuess();
+    if (!document.getElementById('guess_input').disabled) {
+      guess_submit();
     }
   }
 });

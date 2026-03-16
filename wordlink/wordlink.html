@@ -10,72 +10,142 @@
 </head>
 <body>
 
-<header>
-  <img src="logo.png" alt="Word Link" class="logo">
-  <p>Find the word that links both clues</p>
-</header>
-
-<div class="stats-bar">
-  <div class="stat">
-    <div class="stat-value" id="streakVal">0</div>
-    <div class="stat-label">Streak</div>
-  </div>
-  <div class="stat">
-    <div class="stat-value" id="playedVal">0</div>
-    <div class="stat-label">Played</div>
-  </div>
-  <div class="stat">
-    <div class="stat-value" id="avgScoreVal">0</div>
-    <div class="stat-label">Avg Score</div>
+<!-- Intro Screen -->
+<div class="intro_screen" id="intro_screen">
+  <img src="logo.png" alt="Word Link" class="header_logo">
+  <div class="intro_card">
+    <h2 class="intro_title">How to Play</h2>
+    <div class="intro_rules">
+      <div class="intro_rule">
+        <div class="intro_rule_number">1</div>
+        <p>Each day you get <strong>three puzzles</strong> &mdash; Easy, Medium, and Hard.</p>
+      </div>
+      <div class="intro_rule">
+        <div class="intro_rule_number">2</div>
+        <p>Each puzzle shows <strong>two clue words</strong>. Find the single word that links both clues.</p>
+      </div>
+      <div class="intro_rule">
+        <div class="intro_rule_number">3</div>
+        <p>Guess as many times as you like. <strong>Fewer guesses = higher score.</strong></p>
+      </div>
+      <div class="intro_rule">
+        <div class="intro_rule_number">4</div>
+        <p>Stuck? Use the <strong>Reveal Answer</strong> button, but you won't earn points for that puzzle.</p>
+      </div>
+    </div>
+    <div class="intro_example">
+      <div class="intro_example_label">Example</div>
+      <div class="clue_pair">
+        <span class="clue_word small">Pummel</span>
+        <span class="clue_separator">&amp;</span>
+        <span class="clue_word small">Rhythm</span>
+      </div>
+      <div class="intro_example_answer">Answer: <strong>Beat</strong></div>
+    </div>
+    <button class="intro_play_button" id="intro_play_button" onclick="intro_dismiss()">Play</button>
   </div>
 </div>
 
-<div class="progress-dots" id="dots">
-  <div class="dot" data-idx="0"></div>
-  <div class="dot" data-idx="1"></div>
-  <div class="dot" data-idx="2"></div>
+<!-- Game Screen -->
+<div class="game_screen" id="game_screen" style="display:none;">
+  <header>
+    <img src="logo.png" alt="Word Link" class="header_logo">
+    <p>Find the word that links both clues</p>
+  </header>
+
+  <div class="stats_bar">
+    <div class="stats_item">
+      <div class="stats_item_value" id="stats_streak_value">0</div>
+      <div class="stats_item_label">Streak</div>
+    </div>
+    <div class="stats_item">
+      <div class="stats_item_value" id="stats_played_value">0</div>
+      <div class="stats_item_label">Played</div>
+    </div>
+    <div class="stats_item">
+      <div class="stats_item_value" id="stats_avg_value">0</div>
+      <div class="stats_item_label">Avg Score</div>
+    </div>
+  </div>
+
+  <main>
+    <!-- All Three Puzzles -->
+    <div class="puzzles_grid" id="puzzles_grid">
+      <div class="puzzle_card" id="puzzle_card_0" data-idx="0">
+        <div class="puzzle_difficulty easy">Easy</div>
+        <div class="timer_display" id="timer_display_0">0:00</div>
+        <div class="clue_pair">
+          <span class="clue_word" id="clue_first_0"></span>
+          <span class="clue_separator">&amp;</span>
+          <span class="clue_word" id="clue_second_0"></span>
+        </div>
+        <div class="guess_row">
+          <input type="text" id="guess_input_0" placeholder="Your answer..." autocomplete="off" autocapitalize="none" spellcheck="false">
+          <button class="guess_submit_btn" id="guess_submit_0" onclick="guess_submit(0)">Go</button>
+        </div>
+        <div class="guess_count" id="guess_count_0"></div>
+        <div class="feedback_message" id="feedback_message_0"></div>
+        <button class="reveal_button" id="reveal_button_0" onclick="puzzle_reveal(0)">Reveal Answer</button>
+      </div>
+
+      <div class="puzzle_card" id="puzzle_card_1" data-idx="1">
+        <div class="puzzle_difficulty medium">Medium</div>
+        <div class="timer_display" id="timer_display_1">0:00</div>
+        <div class="clue_pair">
+          <span class="clue_word" id="clue_first_1"></span>
+          <span class="clue_separator">&amp;</span>
+          <span class="clue_word" id="clue_second_1"></span>
+        </div>
+        <div class="guess_row">
+          <input type="text" id="guess_input_1" placeholder="Your answer..." autocomplete="off" autocapitalize="none" spellcheck="false">
+          <button class="guess_submit_btn" id="guess_submit_1" onclick="guess_submit(1)">Go</button>
+        </div>
+        <div class="guess_count" id="guess_count_1"></div>
+        <div class="feedback_message" id="feedback_message_1"></div>
+        <button class="reveal_button" id="reveal_button_1" onclick="puzzle_reveal(1)">Reveal Answer</button>
+      </div>
+
+      <div class="puzzle_card" id="puzzle_card_2" data-idx="2">
+        <div class="puzzle_difficulty hard">Hard</div>
+        <div class="timer_display" id="timer_display_2">0:00</div>
+        <div class="clue_pair">
+          <span class="clue_word" id="clue_first_2"></span>
+          <span class="clue_separator">&amp;</span>
+          <span class="clue_word" id="clue_second_2"></span>
+        </div>
+        <div class="guess_row">
+          <input type="text" id="guess_input_2" placeholder="Your answer..." autocomplete="off" autocapitalize="none" spellcheck="false">
+          <button class="guess_submit_btn" id="guess_submit_2" onclick="guess_submit(2)">Go</button>
+        </div>
+        <div class="guess_count" id="guess_count_2"></div>
+        <div class="feedback_message" id="feedback_message_2"></div>
+        <button class="reveal_button" id="reveal_button_2" onclick="puzzle_reveal(2)">Reveal Answer</button>
+      </div>
+    </div>
+
+    <!-- Results View -->
+    <div class="results_view" id="results_view">
+      <div class="score_circle">
+        <div class="score_number" id="score_final_value">0</div>
+        <div class="score_label">points</div>
+      </div>
+
+      <div class="results_breakdown">
+        <div class="results_row">
+          <span class="results_row_label">Correct</span>
+          <span class="results_row_value green" id="results_correct_value">0/3</span>
+        </div>
+        <div class="results_row">
+          <span class="results_row_label">Total Time</span>
+          <span class="results_row_value" id="results_time_value">0:00</span>
+        </div>
+        <div id="results_puzzle_list"></div>
+      </div>
+
+      <button class="game_reset_button" onclick="game_reset()">New Game</button>
+    </div>
+  </main>
 </div>
-
-<main>
-  <!-- Puzzle View -->
-  <div class="puzzle-card" id="puzzleCard">
-    <div class="puzzle-label" id="puzzleLabel">Puzzle 1 of 3</div>
-    <div class="timer" id="timer">0:00</div>
-    <div class="word-pair">
-      <span class="word" id="word1"></span>
-      <span class="ampersand">&amp;</span>
-      <span class="word" id="word2"></span>
-    </div>
-    <div class="input-row">
-      <input type="text" id="guessInput" placeholder="Your answer..." autocomplete="off" autocapitalize="none" spellcheck="false">
-      <button id="submitBtn" onclick="submitGuess()">Go</button>
-    </div>
-    <div class="feedback" id="feedback"></div>
-    <button class="next-btn" id="nextBtn" onclick="nextPuzzle()">Next Puzzle</button>
-  </div>
-
-  <!-- Results View -->
-  <div class="results" id="resultsView">
-    <div class="score-circle">
-      <div class="score-num" id="finalScore">0</div>
-      <div class="score-of">points</div>
-    </div>
-
-    <div class="results-breakdown">
-      <div class="result-row">
-        <span class="rr-label">Correct</span>
-        <span class="rr-value green" id="resCorrect">0/3</span>
-      </div>
-      <div class="result-row">
-        <span class="rr-label">Total Time</span>
-        <span class="rr-value" id="resTotalTime">0:00</span>
-      </div>
-      <div id="puzzleResults"></div>
-    </div>
-
-    <button class="play-again-btn" onclick="newGame()">New Game</button>
-  </div>
-</main>
 
 <script src="wordlink.js"></script>
 </body>
