@@ -93,6 +93,15 @@ CHAT LOG
             architecture_map.svg`.
         3.  Updated the queued `##  NEXT PROMPT` options.
 
+9.  FOLDER REVIEW – 2026-03-25 12:30:00 PM
+    A.  Prompt
+        1.  "review the folder"
+    B.  Response
+        1.  Reviewed both mounted folders
+            (`speech_to_outline/` and `wordlink/`).
+        2.  Created `prompt_log/` with `index.html` and
+            `prompt_log_data.js`; updated `paul/chat_log.txt`.
+
 ------------------
 
 ##  NEXT PROMPT

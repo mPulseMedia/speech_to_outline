@@ -1,0 +1,51 @@
+SPEC 01 PARAGRAPH
+
+1.  Feature
+    A.  Stream → paragraph formation.
+
+2.  Streaming display
+    A.  New text appears immediately.
+    B.  New text appends to the end of the current (open)
+        paragraph.
+    C.  There is exactly one open paragraph at a time (the
+        last one).
+
+3.  Cleave (split) rule
+    A.  When a boundary becomes clear, split the open
+        paragraph into:
+        1.  Front: becomes a closed paragraph.
+        2.  Tail: becomes the new open paragraph (continue
+            appending).
+
+4.  Recognition vs boundary location
+    A.  Boundary marker: marks where the split belongs in the
+        text.
+    B.  Recognition marker: marks when the system decides a
+        split exists.
+        1.  Recognition → boundary link: the recognition
+            marker must point to the boundary marker it
+            identifies.
+        2.  Recognition happens after the stream passes what
+            will become the boundary.
+        3.  Marks used in the app (fields on the new
+            paragraph/thought):
+            a.  Boundary marker:
+                `boundaryAfterUtteranceId`
+            b.  Recognition marker:
+                `boundaryRecognizedAtUtteranceId`
+            c.  Recognition → boundary link:
+                `boundaryRecognizedForUtteranceId`
+        4.  Example (IDs are illustrative):
+            Boundary marker: after utterance `u_123` (end of
+            paragraph 1).
+            Recognition marker: at utterance `u_129` (when it
+            became clear).
+
+5.  Boundary signals (apply conservatively)
+    A.  Scripted: `@@thought:` forces a new paragraph boundary.
+    B.  Non-markup: blank lines create paragraph boundaries.
+    C.  Live speech: long pause can force a boundary
+        (`pauseBoundaryMs`).
+    D.  Fallback: split only with enough substance + low
+        cohesion; cap growth.
+

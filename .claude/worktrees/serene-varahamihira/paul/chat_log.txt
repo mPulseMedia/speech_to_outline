@@ -1,0 +1,110 @@
+CHAT LOG
+
+1.  RESET CHAT LOG – 2026-02-11 03:37:22 PM
+    A.  Prompt
+        1.  "OK, clear out the chat log.TXT and start
+            repopulating it with this as the first prompt"
+    B.  Response
+        1.  Reset `paul/chat_log.txt` to a fresh log starting
+            at entry `1.`.
+        2.  Preserved the separator and exactly one queued
+            `##  NEXT PROMPT` entry below it.
+
+2.  RULE CONSISTENCY – 2026-02-11 03:41:19 PM
+    A.  Prompt
+        1.  Audit `.cursor/rules/paul_rule_system.mdc` and
+            `paul/rule/prompt.txt` for internal consistency
+            (paths, wording, redundancies) and tighten them.
+        2.  Executed next prompt.
+    B.  Response
+        1.  Tightened `.cursor/rules/paul_rule_system.mdc` to
+            scope rule-file formatting to `paul/rule/`.
+        2.  Fixed `paul/rule/prompt.txt` wording for the
+            A/B/C next-prompt selection rule.
+
+3.  RESTORE CURSOR RULE – 2026-02-11 03:44:11 PM
+    A.  Prompt
+        1.  "I no longer see  .cursor/rules/paul_rule_system.mdc .
+            I'd like to see it stay there"
+    B.  Response
+        1.  Restored `.cursor/rules/paul_rule_system.mdc`.
+
+4.  PAUL FORMAT SCOPE – 2026-02-11 03:45:06 PM
+    A.  Prompt
+        1.  "In a Paul Paul rule system and 3A make the
+            outline form out of apply to anything inside the
+            paul folder"
+    B.  Response
+        1.  Updated `.cursor/rules/paul_rule_system.mdc` so
+            the outline format rule applies to any file in
+            `paul/` (not just `paul/rule/`).
+
+5.  SPEC PROMPTS – 2026-02-11 03:46:45 PM
+    A.  Prompt
+        1.  "OK, make the next prompts be all about ways to
+            populate the spec folder with the application
+            that's happening outside of the paul folder and I
+            think that center is around the speech to outline
+            HTML and yeah I mean one possibility is to have
+            things clarified around its architecture or
+            clarified around it functional groupings, and or
+            around it's yeah, you make some suggestions"
+    B.  Response
+        1.  Updated the queued `##  NEXT PROMPT` options to
+            focus on creating spec entries for the primary
+            app (`speech-to-outline.html`) outside `paul/`.
+
+6.  FEATURE INDEX – 2026-02-11 03:48:28 PM
+    A.  Prompt
+        1.  Create a spec for `speech-to-outline.html` that
+            lists functional groupings/features and their
+            key controls/behaviors, under `paul/spec/`.
+        2.  Executed next prompt.
+    B.  Response
+        1.  Created `paul/spec/spec_02 speech_to_outline
+            feature_index.txt`.
+        2.  Updated the queued `##  NEXT PROMPT` options.
+
+7.  DATA MODEL – 2026-02-11 03:52:05 PM
+    A.  Prompt
+        1.  Create a spec for `speech-to-outline.html` that
+            documents core data objects and fields (e.g.,
+            thoughts/utterances/boundaries), under `paul/spec/`,
+            and also create an SVG diagram.
+        2.  Executed next prompt.
+    B.  Response
+        1.  Created `paul/spec/spec_03 speech_to_outline
+            data_model.txt`.
+        2.  Created `paul/spec/spec_03 speech_to_outline
+            data_model.svg`.
+        3.  Updated the queued `##  NEXT PROMPT` options.
+
+8.  ARCHITECTURE MAP – 2026-02-11 04:01:05 PM
+    A.  Prompt
+        1.  Create a spec for `speech-to-outline.html` that
+            describes its architecture (modules/state/flows),
+            and place it under `paul/spec/`, and also create
+            an SVG diagram.
+        2.  Executed next prompt.
+    B.  Response
+        1.  Created `paul/spec/spec_04 speech_to_outline
+            architecture_map.txt`.
+        2.  Created `paul/spec/spec_04 speech_to_outline
+            architecture_map.svg`.
+        3.  Updated the queued `##  NEXT PROMPT` options.
+
+------------------
+
+##  NEXT PROMPT
+    A.  SPEC INDEX
+        1.  Create `paul/spec/spec_index.txt` listing spec
+            files and what each covers.
+    B.  UI / CONTROLS
+        1.  Create a spec for `speech-to-outline.html` that
+            documents the visible UI controls, their states,
+            and the primary user actions they trigger.
+    C.  COLLAPSE / ENDING
+        1.  Create a spec for `speech-to-outline.html` that
+            documents collapse/recession behavior (live window,
+            auto-collapse, parent waves, endcap), under
+            `paul/spec/`.

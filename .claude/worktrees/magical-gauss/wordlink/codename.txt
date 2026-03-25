@@ -1,0 +1,92 @@
+WORDLINK CODENAME REFERENCE
+
+NAMING CONVENTION
+  pattern: concept[_modifier][_verb]
+  case:    snake_case, lowercase
+
+ELEMENT IDS
+  old              new
+  streakVal        stats_streak_value
+  playedVal        stats_played_value
+  avgScoreVal      stats_avg_value
+  puzzleLabel      puzzle_label
+  word1            clue_first
+  word2            clue_second
+  guessInput       guess_input
+  submitBtn        guess_submit_button
+  feedback         feedback_message
+  nextBtn          puzzle_next_button
+  puzzleCard       puzzle_card
+  resultsView      results_view
+  timer            timer_display
+  finalScore       score_final_value
+  resCorrect       results_correct_value
+  resTotalTime     results_time_value
+  puzzleResults    results_puzzle_list
+  dots             progress_dots
+
+CSS CLASSES
+  old              new
+  logo             header_logo
+  stats-bar        stats_bar
+  stat             stats_item
+  stat-value       stats_item_value
+  stat-label       stats_item_label
+  progress-dots    progress_dots
+  dot              progress_dot
+  puzzle-card      puzzle_card
+  puzzle-label     puzzle_label
+  timer            timer_display
+  word-pair        clue_pair
+  word             clue_word
+  ampersand        clue_separator
+  input-row        guess_row
+  feedback         feedback_message
+  next-btn         puzzle_next_button
+  results          results_view
+  score-circle     score_circle
+  score-num        score_number
+  score-of         score_label
+  results-breakdown results_breakdown
+  result-row       results_row
+  rr-label         results_row_label
+  rr-value         results_row_value
+  puzzle-result    results_puzzle_item
+  pr-icon          results_puzzle_icon
+  pr-text          results_puzzle_text
+  pr-time          results_puzzle_time
+  play-again-btn   game_reset_button
+
+JS VARIABLES
+  old              new
+  allPuzzles       puzzle_set
+  currentPuzzleIdx game_puzzle_index
+  puzzleResults    game_results
+  timerInterval    timer_interval
+  secondsElapsed   timer_seconds
+  todayPuzzles     game_puzzles
+  attemptsLeft     attempt_remaining
+
+JS FUNCTIONS
+  old              new
+  getTodayKey      date_key_get
+  getTodayPuzzles  game_puzzles_select
+  loadStats        stats_load
+  saveStats        stats_save
+  loadTodayState   state_load
+  saveTodayState   state_save
+  updateStatsBar   stats_bar_update
+  updateDots       progress_dots_update
+  startTimer       timer_start
+  stopTimer        timer_stop
+  updateTimerDisplay timer_display_update
+  showPuzzle       puzzle_show
+  submitGuess      guess_submit
+  nextPuzzle       puzzle_advance
+  showResults      results_show
+  calculateScore   score_calculate
+  newGame          game_reset
+
+JS FUNCTION ARGUMENTS
+  old              new
+  stats            stats_data

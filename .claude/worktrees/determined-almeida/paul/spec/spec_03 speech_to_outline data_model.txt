@@ -1,0 +1,92 @@
+SPEC 03 SPEECH → OUTLINE (DATA MODEL)
+
+1.  Scope
+    A.  Core data objects and key fields used by
+        `speech-to-outline.html`.
+
+2.  Config (DEFAULT_CONFIG)
+    A.  Boundary + labeling timing:
+        1.  `pauseBoundaryMs`
+        2.  `labelDelayMs`
+        3.  `speedMs`
+    B.  Collapse / recency:
+        1.  `autoCollapseAfterSteps`
+        2.  `parentCollapseAfterSteps`
+        3.  `parentTitleRevealAfterSteps`
+        4.  `liveWindowMs`
+    C.  Boundary heuristics:
+        1.  `boundaryStarters`
+        2.  Caps: min/max utterances + words per thought
+        3.  `similarityThreshold`
+
+3.  Engine state (`engine`)
+    A.  `engine.thoughts`: ordered array of thought objects.
+    B.  `engine.createdAtMs`: engine creation time (used for
+        initialization).
+
+4.  Thought
+    A.  Identity + timestamps:
+        1.  `id`
+        2.  `createdAtMs`
+    B.  Boundary semantics:
+        1.  `boundaryAfterUtteranceId`: the boundary marker
+            (where the split belongs).
+        2.  `boundaryRecognizedAtUtteranceId`: the recognition
+            marker (when the split was recognized).
+        3.  `boundaryRecognizedForUtteranceId`: recognition →
+            boundary link.
+        4.  `boundaryEffectiveShiftN`: shift applied to move
+            utterances across the boundary (often 0).
+        5.  `boundaryEffectiveAtUtteranceId`: effective split
+            location after shifting.
+    C.  Labeling:
+        1.  `labelStatus`: `pending` | `ready`
+        2.  `label`: final label text when ready
+        3.  `plannedTitle`: planned label text (scripted)
+    D.  Grouping / hierarchy labels:
+        1.  `superTitle`
+        2.  `sectionTitle`
+    E.  Content:
+        1.  `utterances`: array of utterance objects
+    F.  UI flags (local to thought):
+        1.  `ui.collapsed`
+        2.  `ui.manual`
+        3.  `ui.labelReadyAtStep`
+
+5.  Utterance
+    A.  Identity + timestamps:
+        1.  `id`
+        2.  `tMs`
+    B.  Content:
+        1.  `text`
+    C.  Derived metrics:
+        1.  word-count and keyword extraction are computed
+            from `text` for labeling + cohesion heuristics.
+
+6.  Transcript (render/input history)
+    A.  `transcript.sentences`: sentence-level items used for
+        sentence view / display.
+    B.  Pasted input queue:
+        1.  Built from `pasteBox` text.
+        2.  Items may include `forceBoundary`.
+
+7.  Streaming state
+    A.  Queue:
+        1.  `fullQueue`: planned stream items (text + markers)
+        2.  `queueIndex`: current stream pointer
+    B.  Progress:
+        1.  `streamStep`: monotonically increasing step
+        2.  `paused`
+        3.  `streamEnded`
+
+8.  History / rewind
+    A.  `streamHistory`: bounded array of snapshots.
+    B.  Snapshot includes:
+        1.  `timeMs`
+        2.  `queueIndex`
+        3.  `paused`
+        4.  deep clones of `engine`, `transcript`, and key
+            UI/ordering/collapse sets and maps.
+    C.  Rewind restores a snapshot and clears animation carry
+        state (prev-collapsed maps) before rendering.
+
