@@ -1,0 +1,776 @@
+<!-- https://mpulsemedia.github.io/speech_to_outline/speech_workflowy.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Speech → Outline</title>
+  <style>
+    /* ── Reset & Base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 15px;
+      line-height: 1.5;
+      background: #fff;
+      color: #2b2b2b;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Top bar ── */
+    #topbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 20px;
+      border-bottom: 1px solid #e8e8e8;
+      background: #fff;
+      flex-shrink: 0;
+    }
+
+    #topbar h1 {
+      font-size: 15px;
+      font-weight: 600;
+      color: #444;
+      letter-spacing: 0.01em;
+      flex: 1;
+    }
+
+    /* ── Listen button ── */
+    #listenBtn {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 16px;
+      border-radius: 20px;
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      transition: background 0.15s, color 0.15s;
+      background: #f0f0f0;
+      color: #444;
+    }
+    #listenBtn:hover { background: #e4e4e4; }
+    #listenBtn.listening {
+      background: #fff0f0;
+      color: #c0392b;
+      animation: pulse-ring 1.8s ease-in-out infinite;
+    }
+    #listenBtn .mic-icon {
+      width: 14px; height: 14px;
+      display: inline-block;
+    }
+
+    @keyframes pulse-ring {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(192,57,43,0.25); }
+      50%       { box-shadow: 0 0 0 6px rgba(192,57,43,0); }
+    }
+
+    /* ── Status strip ── */
+    #status {
+      font-size: 12px;
+      color: #999;
+      min-width: 180px;
+      text-align: right;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 340px;
+    }
+    #status.interim { color: #7b68ee; font-style: italic; }
+    #status.error   { color: #c0392b; }
+
+    /* ── Undo / Clear ── */
+    .topbar-action {
+      font-size: 12px;
+      color: #aaa;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 4px;
+      transition: color 0.1s, background 0.1s;
+    }
+    .topbar-action:hover { color: #555; background: #f0f0f0; }
+
+    /* ── Outline scroll area ── */
+    #outline-wrap {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 20px 60px;
+    }
+
+    /* ── Outline tree ── */
+    ul.wf-list {
+      list-style: none;
+      padding-left: 0;
+    }
+    ul.wf-list ul.wf-list {
+      padding-left: 24px;
+    }
+
+    /* ── Item row ── */
+    li.wf-item {
+      position: relative;
+      margin: 0;
+    }
+
+    .item-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 0;
+      min-height: 26px;
+      padding: 1px 0;
+    }
+
+    /* ── Collapse toggle ── */
+    .toggle {
+      width: 20px;
+      min-width: 20px;
+      height: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: #ccc;
+      font-size: 10px;
+      flex-shrink: 0;
+      user-select: none;
+      transition: color 0.1s;
+      margin-top: 3px;
+    }
+    .toggle:hover { color: #888; }
+    .toggle.has-children { color: #aaa; }
+    .toggle.collapsed .arrow { transform: rotate(-90deg); }
+    .arrow {
+      display: inline-block;
+      transition: transform 0.15s;
+    }
+
+    /* ── Bullet ── */
+    .bullet {
+      width: 20px;
+      min-width: 20px;
+      height: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      margin-top: 3px;
+    }
+    .bullet-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #ccc;
+      transition: background 0.1s;
+    }
+    .bullet:hover .bullet-dot { background: #7b68ee; }
+
+    /* ── Content editable ── */
+    .item-text {
+      flex: 1;
+      min-height: 22px;
+      outline: none;
+      padding: 2px 4px;
+      border-radius: 3px;
+      word-break: break-word;
+      white-space: pre-wrap;
+      caret-color: #7b68ee;
+      color: #2b2b2b;
+      line-height: 1.5;
+    }
+    .item-text:focus { background: #f9f8ff; }
+    .item-text.placeholder:empty::before {
+      content: attr(data-placeholder);
+      color: #ccc;
+      pointer-events: none;
+    }
+
+    /* ── Newly spoken item highlight ── */
+    @keyframes flash-in {
+      0%   { background: rgba(123,104,238,0.18); }
+      100% { background: transparent; }
+    }
+    .item-text.just-added { animation: flash-in 1.2s ease-out forwards; }
+
+    /* ── Children list ── */
+    .children {
+      overflow: hidden;
+      transition: max-height 0.18s ease;
+    }
+    .children.collapsed { max-height: 0 !important; }
+
+    /* ── Help strip ── */
+    #help {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: #fafafa;
+      border-top: 1px solid #eee;
+      padding: 6px 20px;
+      font-size: 11px;
+      color: #bbb;
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    #help kbd {
+      font-family: inherit;
+      font-size: 11px;
+      background: #f0f0f0;
+      border-radius: 3px;
+      padding: 1px 4px;
+      color: #888;
+    }
+
+    /* ── No-speech browser message ── */
+    #no-speech {
+      display: none;
+      margin: 40px auto;
+      max-width: 480px;
+      background: #fff8f0;
+      border: 1px solid #ffd8a8;
+      border-radius: 8px;
+      padding: 20px 24px;
+      color: #7a4a00;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+
+<div id="topbar">
+  <h1>Speech → Outline</h1>
+  <span id="status">Press Listen to start</span>
+  <button id="undoBtn" class="topbar-action" title="Undo last spoken item">↩ Undo</button>
+  <button id="clearBtn" class="topbar-action" title="Clear all">✕ Clear</button>
+  <button id="listenBtn">
+    <svg class="mic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="9" y="2" width="6" height="13" rx="3"/>
+      <path d="M5 10a7 7 0 0 0 14 0"/>
+      <line x1="12" y1="19" x2="12" y2="23"/>
+      <line x1="8" y1="23" x2="16" y2="23"/>
+    </svg>
+    <span id="listenLabel">Listen</span>
+  </button>
+</div>
+
+<div id="outline-wrap">
+  <div id="no-speech">
+    <strong>Speech recognition not available.</strong><br>
+    This page requires a browser that supports the Web Speech API — use Chrome or Edge on desktop.
+  </div>
+  <ul class="wf-list" id="root-list"></ul>
+</div>
+
+<div id="help">
+  <span>Voice: say <kbd>indent</kbd> <kbd>outdent</kbd> <kbd>new section</kbd> <kbd>delete that</kbd> <kbd>undo</kbd></span>
+  <span><kbd>Tab</kbd> indent &nbsp;<kbd>Shift+Tab</kbd> outdent &nbsp;<kbd>Enter</kbd> new item &nbsp;<kbd>Backspace</kbd> merge up</span>
+  <span>Click ▶ to collapse</span>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// Data model
+// ─────────────────────────────────────────────────────────────────────────────
+
+let nodeId = 0;
+function mkNode(text = '') {
+  return { id: ++nodeId, text, children: [], open: true };
+}
+
+// Root is a synthetic node whose children are the top-level list
+const root = mkNode('__root__');
+
+// History stack for undo (stores snapshots of root.children)
+const undoStack = [];
+function snapshot() {
+  // Deep clone
+  undoStack.push(JSON.parse(JSON.stringify(root.children)));
+  if (undoStack.length > 60) undoStack.shift();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Rendering
+// ─────────────────────────────────────────────────────────────────────────────
+
+function render(flashId = null) {
+  const listEl = document.getElementById('root-list');
+  listEl.innerHTML = '';
+  root.children.forEach(n => listEl.appendChild(buildItem(n, root, flashId)));
+  if (root.children.length === 0) {
+    // Show placeholder item
+    const li = document.createElement('li');
+    li.className = 'wf-item';
+    const row = document.createElement('div');
+    row.className = 'item-row';
+    const toggle = document.createElement('span');
+    toggle.className = 'toggle';
+    toggle.innerHTML = '&nbsp;';
+    const bullet = document.createElement('span');
+    bullet.className = 'bullet';
+    bullet.innerHTML = '<span class="bullet-dot"></span>';
+    const text = document.createElement('div');
+    text.className = 'item-text placeholder';
+    text.contentEditable = 'true';
+    text.dataset.placeholder = 'Press Listen and start speaking…';
+    text.addEventListener('keydown', e => handleKeydown(e, null, root));
+    row.appendChild(toggle);
+    row.appendChild(bullet);
+    row.appendChild(text);
+    li.appendChild(row);
+    listEl.appendChild(li);
+  }
+}
+
+function buildItem(node, parentNode, flashId) {
+  const li = document.createElement('li');
+  li.className = 'wf-item';
+  li.dataset.id = node.id;
+
+  const row = document.createElement('div');
+  row.className = 'item-row';
+
+  // Toggle
+  const toggle = document.createElement('span');
+  toggle.className = 'toggle' + (node.children.length ? ' has-children' : '');
+  if (!node.open && node.children.length) toggle.classList.add('collapsed');
+  toggle.innerHTML = node.children.length
+    ? '<span class="arrow">▶</span>'
+    : '<span style="opacity:0">▶</span>';
+  toggle.addEventListener('click', () => {
+    node.open = !node.open;
+    render();
+    // Restore focus if possible
+  });
+
+  // Bullet
+  const bullet = document.createElement('span');
+  bullet.className = 'bullet';
+  bullet.innerHTML = '<span class="bullet-dot"></span>';
+  bullet.addEventListener('click', () => focusNode(node.id));
+
+  // Text
+  const text = document.createElement('div');
+  text.className = 'item-text';
+  text.contentEditable = 'true';
+  text.textContent = node.text;
+  if (flashId === node.id) text.classList.add('just-added');
+  text.addEventListener('input', () => { node.text = text.textContent; });
+  text.addEventListener('keydown', e => handleKeydown(e, node, parentNode));
+  text.addEventListener('focus', () => { lastFocusedId = node.id; });
+
+  row.appendChild(toggle);
+  row.appendChild(bullet);
+  row.appendChild(text);
+  li.appendChild(row);
+
+  // Children
+  if (node.children.length) {
+    const childList = document.createElement('ul');
+    childList.className = 'wf-list children' + (node.open ? '' : ' collapsed');
+    if (node.open) childList.style.maxHeight = '999999px';
+    node.children.forEach(c => childList.appendChild(buildItem(c, node, flashId)));
+    li.appendChild(childList);
+  }
+
+  return li;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Navigation helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+let lastFocusedId = null;
+
+function focusNode(id) {
+  const el = document.querySelector(`[data-id="${id}"] .item-text`);
+  if (el) { el.focus(); placeCaretAtEnd(el); }
+}
+
+function placeCaretAtEnd(el) {
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  range.collapse(false);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
+// Find a node and its parent in the tree
+function findNode(id, list = root.children, parent = root) {
+  for (let i = 0; i < list.length; i++) {
+    if (list[i].id === id) return { node: list[i], parent, index: i };
+    const found = findNode(id, list[i].children, list[i]);
+    if (found) return found;
+  }
+  return null;
+}
+
+// Flat ordered list of all visible (open) nodes
+function flatVisible(list = root.children, result = []) {
+  list.forEach(n => {
+    result.push(n);
+    if (n.open && n.children.length) flatVisible(n.children, result);
+  });
+  return result;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Keyboard handling
+// ─────────────────────────────────────────────────────────────────────────────
+
+function handleKeydown(e, node, parentNode) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    snapshot();
+    const newNode = mkNode('');
+    if (node === null) {
+      root.children.push(newNode);
+    } else {
+      const { parent, index } = findNode(node.id) || {};
+      if (parent) parent.children.splice(index + 1, 0, newNode);
+    }
+    render();
+    focusNode(newNode.id);
+  }
+  else if (e.key === 'Tab' && !e.shiftKey) {
+    e.preventDefault();
+    if (!node) return;
+    const { parent, index } = findNode(node.id) || {};
+    if (!parent || index === 0) return;
+    snapshot();
+    const prevSibling = parent.children[index - 1];
+    parent.children.splice(index, 1);
+    prevSibling.children.push(node);
+    prevSibling.open = true;
+    render();
+    focusNode(node.id);
+  }
+  else if (e.key === 'Tab' && e.shiftKey) {
+    e.preventDefault();
+    if (!node) return;
+    const { parent, index } = findNode(node.id) || {};
+    if (!parent || parent === root) return;
+    // Move node to grandparent, after parent
+    const gp = findNode(parent.id) || {};
+    if (!gp.parent) return;
+    snapshot();
+    parent.children.splice(index, 1);
+    const parentIdx = gp.index;
+    gp.parent.children.splice(parentIdx + 1, 0, node);
+    render();
+    focusNode(node.id);
+  }
+  else if (e.key === 'Backspace' && node) {
+    const el = document.querySelector(`[data-id="${node.id}"] .item-text`);
+    if (el && el.textContent === '') {
+      e.preventDefault();
+      snapshot();
+      const { parent, index } = findNode(node.id) || {};
+      if (!parent) return;
+      parent.children.splice(index, 1);
+      // Move children up to parent at same position
+      node.children.forEach((c, ci) => parent.children.splice(index + ci, 0, c));
+      render();
+      // Focus previous visible node
+      const flat = flatVisible();
+      const prev = flat[Math.max(0, flat.findIndex(n => n.id === node.id) - 1)];
+      if (prev) focusNode(prev.id);
+    }
+  }
+  else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    const flat = flatVisible();
+    const i = flat.findIndex(n => n && node && n.id === node.id);
+    if (i > 0) focusNode(flat[i - 1].id);
+  }
+  else if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    const flat = flatVisible();
+    const i = flat.findIndex(n => n && node && n.id === node.id);
+    if (i < flat.length - 1) focusNode(flat[i + 1].id);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Add a spoken item to the outline
+// ─────────────────────────────────────────────────────────────────────────────
+
+let insertDepth = 0; // current indent depth controlled by voice
+
+function addSpokenItem(text) {
+  snapshot();
+  const newNode = mkNode(text);
+
+  // Insert at the current depth level
+  // Find the last node at insertDepth and add as its sibling (or child)
+  const flat = flatVisible();
+
+  if (flat.length === 0 || insertDepth === 0) {
+    root.children.push(newNode);
+    render(newNode.id);
+    lastFocusedId = newNode.id;
+    return newNode;
+  }
+
+  // Try to insert at the right depth
+  // Simple approach: find where insertDepth puts us relative to last node
+  const lastNode = flat[flat.length - 1];
+  const lastInfo = findNode(lastNode.id);
+
+  // Determine depth of lastNode
+  function depthOf(id, list = root.children, d = 0) {
+    for (const n of list) {
+      if (n.id === id) return d;
+      const r = depthOf(id, n.children, d + 1);
+      if (r !== -1) return r;
+    }
+    return -1;
+  }
+  const lastDepth = depthOf(lastNode.id);
+
+  if (insertDepth > lastDepth) {
+    // Make child of last node
+    lastNode.children.push(newNode);
+    lastNode.open = true;
+  } else if (insertDepth === lastDepth) {
+    // Sibling of last node
+    const { parent, index } = lastInfo;
+    parent.children.splice(index + 1, 0, newNode);
+  } else {
+    // Walk up to find parent at the right depth
+    function findAtDepth(targetDepth, list = root.children, d = 0, parent = root) {
+      for (let i = 0; i < list.length; i++) {
+        if (d === targetDepth) return { parent, index: i };
+        const r = findAtDepth(targetDepth, list[i].children, d + 1, list[i]);
+        if (r) return r;
+      }
+      return null;
+    }
+    // Find the last item at insertDepth
+    let targetParent = root;
+    let targetIndex = root.children.length;
+    const traverse = (list, p, d) => {
+      for (let i = 0; i < list.length; i++) {
+        if (d === insertDepth) { targetParent = p; targetIndex = i + 1; }
+        traverse(list[i].children, list[i], d + 1);
+      }
+    };
+    traverse(root.children, root, 0);
+    targetParent.children.splice(targetIndex, 0, newNode);
+  }
+
+  render(newNode.id);
+  lastFocusedId = newNode.id;
+  return newNode;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Voice commands
+// ─────────────────────────────────────────────────────────────────────────────
+
+const COMMANDS = [
+  { pattern: /^indent\s*$/i,       action: () => { insertDepth++; setStatus(`Depth → ${insertDepth}`); } },
+  { pattern: /^outdent\s*$/i,      action: () => { insertDepth = Math.max(0, insertDepth - 1); setStatus(`Depth → ${insertDepth}`); } },
+  { pattern: /^(new section|new heading)\s*$/i, action: () => { insertDepth = 0; addSpokenItem(''); } },
+  { pattern: /^(delete that|delete last)\s*$/i, action: () => {
+    snapshot();
+    const flat = flatVisible();
+    if (flat.length === 0) return;
+    const last = flat[flat.length - 1];
+    const { parent, index } = findNode(last.id) || {};
+    if (parent) { parent.children.splice(index, 1); render(); }
+  }},
+  { pattern: /^undo\s*$/i, action: doUndo },
+  { pattern: /^clear (all|outline)?\s*$/i, action: doClear },
+];
+
+function handleVoiceText(text) {
+  // Check commands first
+  for (const cmd of COMMANDS) {
+    if (cmd.pattern.test(text.trim())) {
+      cmd.action();
+      return;
+    }
+  }
+
+  // Check for inline indent/outdent prefix
+  let finalText = text;
+  let depthDelta = 0;
+  const indentMatch = text.match(/^indent\s+(.+)/i);
+  const outdentMatch = text.match(/^outdent\s+(.+)/i);
+  const childMatch = text.match(/^sub\s+(.+)/i);
+
+  if (indentMatch) {
+    finalText = indentMatch[1];
+    insertDepth++;
+    depthDelta = 0;
+  } else if (outdentMatch) {
+    finalText = outdentMatch[1];
+    insertDepth = Math.max(0, insertDepth - 1);
+    depthDelta = 0;
+  } else if (childMatch) {
+    finalText = childMatch[1];
+    insertDepth++;
+    depthDelta = 0;
+  }
+
+  addSpokenItem(finalText);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Undo / Clear
+// ─────────────────────────────────────────────────────────────────────────────
+
+function doUndo() {
+  if (undoStack.length === 0) { setStatus('Nothing to undo'); return; }
+  const prev = undoStack.pop();
+  // Restore ids tracking
+  root.children = restoreNodes(prev);
+  render();
+  setStatus('Undone');
+}
+
+function restoreNodes(arr) {
+  return arr.map(n => {
+    const node = mkNode(n.text);
+    node.id = n.id;
+    node.open = n.open;
+    node.children = restoreNodes(n.children);
+    return node;
+  });
+}
+
+function doClear() {
+  snapshot();
+  root.children = [];
+  insertDepth = 0;
+  render();
+  setStatus('Cleared');
+}
+
+document.getElementById('undoBtn').addEventListener('click', doUndo);
+document.getElementById('clearBtn').addEventListener('click', doClear);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Status helper
+// ─────────────────────────────────────────────────────────────────────────────
+
+let statusTimer = null;
+function setStatus(msg, cls = '') {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.className = cls;
+  clearTimeout(statusTimer);
+  if (cls !== 'interim') {
+    statusTimer = setTimeout(() => {
+      el.textContent = listening ? '● Listening…' : 'Idle';
+      el.className = listening ? '' : '';
+    }, 2500);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Web Speech API
+// ─────────────────────────────────────────────────────────────────────────────
+
+let recognition = null;
+let listening = false;
+let interimText = '';
+
+// Hold a persistent getUserMedia stream so Chrome doesn't re-prompt
+// for mic permission on every SpeechRecognition restart (file:// URLs).
+let _micStream = null;
+function acquireMic() {
+  if (_micStream) return Promise.resolve();
+  return navigator.mediaDevices.getUserMedia({ audio: true })
+    .then(stream => { _micStream = stream; })
+    .catch(() => {});
+}
+
+function initSpeech() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    document.getElementById('no-speech').style.display = 'block';
+    document.getElementById('listenBtn').disabled = true;
+    return;
+  }
+  recognition = new SR();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = 'en-US';
+  recognition.maxAlternatives = 1;
+
+  recognition.onresult = (e) => {
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const t = e.results[i][0].transcript;
+      if (e.results[i].isFinal) {
+        const cleaned = t.trim();
+        if (cleaned) {
+          handleVoiceText(cleaned);
+          interimText = '';
+        }
+      } else {
+        interim += t;
+      }
+    }
+    if (interim) {
+      interimText = interim;
+      setStatus('⟳ ' + interim.trim().slice(0, 60), 'interim');
+    }
+  };
+
+  recognition.onerror = (e) => {
+    if (e.error === 'no-speech') return; // ignore silence
+    if (e.error === 'aborted') return;
+    setStatus('Error: ' + e.error, 'error');
+  };
+
+  recognition.onend = () => {
+    if (listening) {
+      // Auto-restart on unexpected end
+      try { recognition.start(); } catch(_) {}
+    }
+  };
+}
+
+function startListening() {
+  if (!recognition) return;
+  acquireMic().then(() => {
+    listening = true;
+    try { recognition.start(); } catch(_) {}
+    document.getElementById('listenBtn').classList.add('listening');
+    document.getElementById('listenLabel').textContent = 'Stop';
+    setStatus('● Listening…');
+  });
+}
+
+function stopListening() {
+  listening = false;
+  try { recognition.stop(); } catch(_) {}
+  document.getElementById('listenBtn').classList.remove('listening');
+  document.getElementById('listenLabel').textContent = 'Listen';
+  setStatus('Idle');
+}
+
+document.getElementById('listenBtn').addEventListener('click', () => {
+  if (listening) stopListening(); else startListening();
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Init
+// ─────────────────────────────────────────────────────────────────────────────
+
+initSpeech();
+render();
+</script>
+</body>
+</html>

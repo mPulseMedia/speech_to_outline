@@ -102,6 +102,20 @@ CHAT LOG
         2.  Created `prompt_log/` with `index.html` and
             `prompt_log_data.js`; updated `paul/chat_log.txt`.
 
+10. PUZZLE SET XLSX – 2026-03-25 12:30:00 PM
+    A.  Prompt
+        1.  "make an xlsx file that lists the puzzle_set
+            sets. Call columns: word1, word2, Answer. add
+            a column called hardness. take a guess at how
+            hard each set is."
+    B.  Response
+        1.  Read `wordlink/wordlink.js`; found 217 puzzle
+            entries.
+        2.  Assigned hardness (Easy/Medium/Hard) to each
+            based on obscurity of dual meanings.
+        3.  Created `puzzle_set.xlsx` with color-coded
+            rows, auto-filter, and frozen header.
+
 ------------------
 
 ##  NEXT PROMPT
